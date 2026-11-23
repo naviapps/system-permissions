@@ -1,5 +1,6 @@
 #ifndef SYSTEM_PERMISSIONS_H
 #define SYSTEM_PERMISSIONS_H
+#define SYSTEM_PERMISSIONS_ABI_VERSION 1U
 #include <stddef.h>
 #include <stdint.h>
 #ifdef __cplusplus
@@ -8,6 +9,8 @@ extern "C" {
 
 typedef struct SystemPermissionsResult SystemPermissionsResult;
 typedef struct SystemPermissionsStore SystemPermissionsStore;
+
+uint32_t system_permissions_abi_version(void);
 
 /* UTF-8 JSON, at most 1 MiB. Nonnull inputs must be readable for length bytes.
    The result is owned. status 0 = success JSON, 1 = {"error":"typedCode",...}.

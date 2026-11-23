@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from distribution import verify_windows as windows
 
@@ -122,7 +122,9 @@ class BuildRouteTests(unittest.TestCase):
             accepted_dll = library.read_bytes()
             library.with_suffix(".dll.lib").write_bytes(b"accepted import library")
             (root / "rust-toolchain.toml").write_text('[toolchain]\nchannel = "1.99.1"\n')
-            (root / "mise.toml").write_text('[tools]\ndotnet = "10.0.403"\n')
+            (root / "global.json").write_text(
+                '{"sdk":{"version":"10.0.403","rollForward":"disable"}}'
+            )
             support = windows.load("windows")
             tool_inputs = {"distribution/verify_windows.py": "a" * 64}
             final_inputs = (
@@ -195,6 +197,11 @@ class BuildRouteTests(unittest.TestCase):
             windows_tools.host_architecture.return_value = host
             windows_tools.native_environment.return_value = environment
             windows_tools.verify_library.return_value = {"system_permissions_abi_version"}
+            windows_tools.probe_abi.return_value = None
+            product = Mock()
+            product.package = "system-permissions-ffi"
+            product.library = "system_permissions"
+            product.abi_versions.return_value = {"system_permissions_abi_version": 1}
             c_compiler = Mock()
             c_compiler.compile_c.side_effect = compile_fixture
             dotnet_tools = Mock()
@@ -203,6 +210,11 @@ class BuildRouteTests(unittest.TestCase):
             artifacts_tools.stage_native.side_effect = stage_fixture
             artifacts_tools.write_json.side_effect = report_fixture
             cargo_tools = Mock()
+            cargo_tools.CargoDependencies.return_value.provenance.return_value = {
+                "roots": [product.package]
+            }
+            cargo_build_tools = Mock()
+            cargo_build_tools.compile_units.return_value = [{"targetName": product.library}]
             ffi_tools = Mock(DARWIN_TARGETS=("aarch64-apple-darwin", "x86_64-apple-darwin"))
             compiler = "rustc 1.99.1 (fixture)"
             info = f"{compiler}\nhost: {support.MSVC_TARGETS[host]}\n"
@@ -217,10 +229,12 @@ class BuildRouteTests(unittest.TestCase):
                 "dotnet": dotnet_tools,
                 "artifacts": artifacts_tools,
                 "cargo": cargo_tools,
+                "cargo_build": cargo_build_tools,
                 "ffi": ffi_tools,
             }
             with (
                 patch.object(windows, "ROOT", root),
+                patch.object(windows, "ffi_product", return_value=product),
                 patch.object(windows, "load", side_effect=modules.get),
                 patch.object(
                     windows, "support_inputs", side_effect=(tool_inputs, final_inputs) * 3
@@ -286,11 +300,27 @@ class BuildRouteTests(unittest.TestCase):
                         self.assertEqual((destination / name).read_bytes(), payload)
                     return
             cargo_tools.runtime_notices.assert_called_once_with(root, env)
-            cargo_tools.CargoDependencies.assert_called_once_with(
-                root,
-                ("system-permissions-ffi",),
-                ("aarch64-apple-darwin", "x86_64-apple-darwin", target),
-                env,
+            self.assertEqual(
+                cargo_tools.CargoDependencies.call_args_list,
+                [
+                    call(
+                        root,
+                        (product.package,),
+                        ("aarch64-apple-darwin", "x86_64-apple-darwin", target),
+                        env,
+                    ),
+                    call(root, [product.package], [target], env),
+                ],
+            )
+            compile_command = cargo_build_tools.compile_units.call_args.args[0]
+            self.assertIn("--message-format=json-render-diagnostics", compile_command)
+            self.assertEqual(cargo_build_tools.compile_units.call_args.kwargs["library"], library)
+            cargo_build_tools.verify_units.assert_called_once_with(
+                {target: [{"targetName": product.library}]},
+                {"roots": [product.package]},
+                [target],
+                product.package,
+                product.library,
             )
             cargo_tools.CargoDependencies.return_value.retain_notices.assert_called_once_with()
             invocation = windows_tools.native_environment.call_args
@@ -314,18 +344,22 @@ class BuildRouteTests(unittest.TestCase):
             )
             self.assertEqual(
                 [command[1] for command in commands if "--target" in command],
-                ["fetch", "clippy", "test", "build"],
+                ["fetch", "clippy", "test"],
             )
             self.assertTrue(
                 all(
                     command[command.index("--target") + 1] == target
-                    for command in commands
+                    for command in [*commands, compile_command]
                     if "--target" in command
                 )
             )
             self.assertEqual(windows_tools.verify_library.call_args.args[-1], "x64")
             accepted_copy = fixture.parent / library.name
             self.assertEqual(windows_tools.verify_library.call_args.args[0], accepted_copy)
+            self.assertEqual(
+                windows_tools.probe_abi.call_args.args,
+                (product, accepted_copy, accepted_copy.with_suffix(".dll.lib"), tools, env, "x64"),
+            )
             self.assertEqual(
                 c_compiler.compile_c.call_args.kwargs["libraries"],
                 [accepted_copy.with_suffix(".dll.lib")],
@@ -339,6 +373,8 @@ class BuildRouteTests(unittest.TestCase):
             pack.assert_called_once_with(dotnet, accepted_copy, rid, env, fixture.parent)
             receipt = json.loads((destination / "system-permissions-windows.json").read_bytes())
             self.assertEqual(receipt["nativeSha256"], hashlib.sha256(accepted_dll).hexdigest())
+            self.assertEqual(receipt["abiVersions"], {"system_permissions_abi_version": 1})
+            self.assertEqual(receipt["abiProbeArchitecture"], "x64")
             self.assertEqual(receipt["target"], target)
             self.assertEqual(receipt["runtime"], rid)
             self.assertEqual(receipt["toolInputs"], tool_inputs)

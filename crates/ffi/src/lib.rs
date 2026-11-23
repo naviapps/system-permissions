@@ -47,6 +47,11 @@ fn contained(f: impl FnOnce() -> Result<serde_json::Value, Error>) -> *mut Syste
     owned(catch_unwind(AssertUnwindSafe(f)).unwrap_or(Err(Error::Panic)))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn system_permissions_abi_version() -> u32 {
+    1
+}
+
 unsafe fn input<'a>(data: *const u8, len: usize) -> Result<&'a [u8], Error> {
     if len > MAX_INPUT_BYTES {
         return Err(Error::InputTooLarge);

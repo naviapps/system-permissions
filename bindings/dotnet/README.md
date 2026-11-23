@@ -27,7 +27,7 @@ projects into `build/bindings/packages/` for the current Mac architecture.
 
 On Windows 11 ARM64, build x64 from an ARM64 PowerShell with native ARM64
 Python and Rust, the ARM64-hosted x64 MSVC toolset, and the x64 .NET SDK version
-pinned in `mise.toml`.
+pinned in [`global.json`](../../global.json).
 Visual Studio supplies the cross-target compiler under `HostARM64\x64`.
 [ARM64 Visual Studio compiler paths](https://learn.microsoft.com/visualstudio/install/visual-studio-on-arm-devices).
 Microsoft installs the x64 SDK in the `x64` subfolder alongside ARM64 .NET.

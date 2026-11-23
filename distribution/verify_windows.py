@@ -12,6 +12,8 @@ from pathlib import Path
 
 from sdk_tooling import vm_environment as vm
 from sdk_tooling.adapters import load, support_inputs
+from sdk_tooling.dotnet import pinned_sdk_version
+from sdk_tooling.native_plan import ffi_product
 from sdk_tooling.windows_delivery import RID, TARGET
 
 from distribution.verify_bindings import pack_and_consume
@@ -99,8 +101,8 @@ def main(argv=None):
     environment["DOTNET_GENERATE_ASPNET_CERTIFICATE"] = "false"
     env, tools, dotnet = windows.native_environment(host, environment, target_architecture="x64")
     version = subprocess.check_output([dotnet, "--version"], cwd=ROOT, env=env, text=True).strip()
-    if version != tomllib.loads((ROOT / "mise.toml").read_text())["tools"]["dotnet"]:
-        raise SystemExit("Use the pinned x64 .NET SDK from mise.toml")
+    if version != pinned_sdk_version(ROOT):
+        raise SystemExit("Use the pinned x64 .NET SDK from global.json")
     env["CARGO_TARGET_DIR"] = str(ROOT / "target")
     flags = [
         *env["CARGO_ENCODED_RUSTFLAGS"].split("\x1f"),
@@ -150,18 +152,32 @@ def main(argv=None):
         "warnings",
     )
     run("cargo", "test", "--workspace", "--target", TARGET, "--locked", "--offline")
-    run(
-        "cargo",
-        "build",
-        "-p",
-        "system-permissions-ffi",
-        "--release",
-        "--target",
-        TARGET,
-        "--locked",
-        "--offline",
-    )
     built = ROOT / "target" / TARGET / "release"
+    product = ffi_product(ROOT)
+    cargo_build = load("cargo_build")
+    graph = cargo.CargoDependencies(ROOT, [product.package], [TARGET], env)
+    dependencies = graph.provenance()
+    units = {
+        TARGET: cargo_build.compile_units(
+            [
+                "cargo",
+                "build",
+                "-p",
+                product.package,
+                "--release",
+                "--target",
+                TARGET,
+                "--locked",
+                "--offline",
+                "--message-format=json-render-diagnostics",
+            ],
+            graph=graph,
+            target=TARGET,
+            library=built / "system_permissions.dll",
+            env=env,
+        )
+    }
+    cargo_build.verify_units(units, dependencies, [TARGET], product.package, product.library)
     local = ROOT / "build/windows"
     output = (vm.artifacts_dir(env) or local) / RID
     with (
@@ -185,6 +201,7 @@ def main(argv=None):
             env,
             "x64",
         )
+        windows.probe_abi(product, library, import_library, tools, env, "x64")
         load("c_compiler").compile_c(
             ROOT / "crates/ffi/tests/c/abi.c",
             output=fixture,
@@ -211,6 +228,8 @@ def main(argv=None):
             raise ValueError("The staged Windows DLL changed during acceptance")
         if support_inputs(ROOT) != tool_inputs:
             raise ValueError("SDK tool inputs changed during Windows acceptance")
+        if graph.provenance() != dependencies:
+            raise ValueError("Native dependencies changed during Windows acceptance")
         receipt = {
             "target": TARGET,
             "runtime": RID,
@@ -218,7 +237,11 @@ def main(argv=None):
             "executionMode": "x64-emulation" if emulated else "native",
             "compiler": compiler,
             "toolInputs": tool_inputs,
+            "dependencies": dependencies,
+            "cargoBuild": units,
             "exports": sorted(expected),
+            "abiVersions": product.abi_versions(windows=True),
+            "abiProbeArchitecture": "x64",
             "nativeSha256": native_hash,
             "packages": packages,
             "coverage": [
