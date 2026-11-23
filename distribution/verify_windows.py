@@ -2,26 +2,22 @@
 """Build and check Windows x64 packages on an owned worker."""
 
 import argparse
-import hashlib
-import os
+import shutil
 import subprocess
 import tempfile
-import tomllib
 from pathlib import Path
 
-from sdk_tooling import vm_environment as vm
 from sdk_tooling.adapters import load, support_inputs
-from sdk_tooling.dotnet import pinned_sdk_version
 from sdk_tooling.native_plan import ffi_product
 from sdk_tooling.windows_delivery import (
     RID,
-    TARGET,
-    locked_fetch_args,
+    X64Acceptance,
+    acceptance_source,
     publish_package_evidence,
     verify_packages,
 )
 
-from distribution.verify_bindings import pack_and_consume
+from distribution.verify_bindings import WINDOWS_ADAPTER, pack_and_consume
 
 ROOT = Path(__file__).resolve().parents[1]
 RECEIPT = "system-permissions-windows.json"
@@ -59,181 +55,114 @@ def check_packaged_desktop(fixture, library, host, env):
         )
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--packaged-desktop", action="store_true", help="Check an installed MSIX")
-    args = parser.parse_args(argv)
-
-    def distribution_inputs():
-        inputs = support_inputs(ROOT)
-        if args.packaged_desktop:
-            inputs[PACKAGED_FIXTURE] = hashlib.sha256(
-                (ROOT / PACKAGED_FIXTURE).read_bytes()
-            ).hexdigest()
-        return inputs
-
-    tool_inputs = distribution_inputs()
-
-    windows = load("windows")
-    host = windows.host_architecture()
-    artifacts = load("artifacts")
-    cargo = load("cargo")
-    notice_targets = (*load("ffi").DARWIN_TARGETS, TARGET)
-    emulated = host == "arm64"
-    environment = {
-        key.upper(): value for key, value in os.environ.items() if key.upper() != "DOTNET_HOST_PATH"
-    }
-    environment["DOTNET_GENERATE_ASPNET_CERTIFICATE"] = "false"
-    env, tools, dotnet = windows.native_environment(host, environment, target_architecture="x64")
-    version = subprocess.check_output([dotnet, "--version"], cwd=ROOT, env=env, text=True).strip()
-    if version != pinned_sdk_version(ROOT):
-        raise SystemExit("Use the pinned x64 .NET SDK from global.json")
-    env["CARGO_TARGET_DIR"] = str(ROOT / "target")
-    flags = [
-        *env["CARGO_ENCODED_RUSTFLAGS"].split("\x1f"),
-        "--remap-path-prefix=" + str(ROOT) + "=/system-permissions",
-        "--remap-path-prefix=" + str(Path.home()) + "=/developer",
-    ]
-    if env.get("CARGO_HOME"):
-        flags.append("--remap-path-prefix=" + env["CARGO_HOME"] + "=/cargo")
-    env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
-    compiler_info = subprocess.check_output(
-        ["rustc", "--version", "--verbose"], cwd=ROOT, env=env, text=True
-    ).splitlines()
-    compiler = compiler_info[0]
-    pinned = tomllib.loads((ROOT / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
+def export_native(built, receipt, artifact_root, artifacts):
+    destination = artifact_root / "sdk-windows" / RID
     if (
-        not compiler.startswith("rustc " + pinned + " ")
-        or "host: " + windows.MSVC_TARGETS[host] not in compiler_info
+        destination.exists()
+        or destination.is_symlink()
+        or not destination.parent.resolve().is_relative_to(artifact_root.resolve())
     ):
-        raise SystemExit("Use the pinned Rust toolchain built for the host architecture")
+        raise ValueError("Windows native export requires a new directory inside the artifact root")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=destination.parent, prefix="native-") as directory:
+        stage = Path(directory) / RID
+        shutil.copytree(built, stage, symlinks=True)
+        expected = receipt["outputs"] | {
+            "native-build.json": artifacts.file_sha256(built / "native-build.json")
+        }
+        if artifacts.hashes(artifacts.files(stage), stage) != expected:
+            raise ValueError("Exported Windows files differ from the accepted native build")
+        stage.rename(destination)
 
-    def run(*args):
-        subprocess.run([str(a) for a in args], cwd=ROOT, env=env, check=True)
 
-    rust_libdir = subprocess.check_output(
-        ["rustc", "--print", "target-libdir", "--target", TARGET], cwd=ROOT, env=env, text=True
-    ).strip()
-    try:
-        windows.require_rust_target_stdlib(rust_libdir, TARGET)
-    except ValueError as error:
-        raise SystemExit(str(error)) from None
-
-    run(*locked_fetch_args(notice_targets=notice_targets))
-    cargo.runtime_notices(ROOT, env)
-    cargo.CargoDependencies(ROOT, ("system-permissions-ffi",), notice_targets, env).retain_notices()
-    run("cargo", "fmt", "--all", "--", "--check")
-    run(
-        "cargo",
-        "clippy",
-        "--workspace",
-        "--all-targets",
-        "--target",
-        TARGET,
-        "--locked",
-        "--offline",
-        "--",
-        "-D",
-        "warnings",
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument("--packaged-desktop", action="store_true", help="Check an installed MSIX")
+    parser.add_argument(
+        "--export-native",
+        action="store_true",
+        help="Export the accepted build for combined NuGet packaging",
     )
-    run("cargo", "test", "--workspace", "--target", TARGET, "--locked", "--offline")
-    built = ROOT / "target" / TARGET / "release"
-    product = ffi_product(ROOT)
-    cargo_build = load("cargo_build")
-    graph = cargo.CargoDependencies(ROOT, [product.package], [TARGET], env)
-    dependencies = graph.provenance()
-    units = {
-        TARGET: cargo_build.compile_units(
-            [
-                "cargo",
-                "build",
-                "-p",
-                product.package,
-                "--release",
-                "--target",
-                TARGET,
-                "--locked",
-                "--offline",
-                "--message-format=json-render-diagnostics",
-            ],
-            graph=graph,
-            target=TARGET,
-            library=built / "system_permissions.dll",
-            env=env,
+    args = parser.parse_args(argv)
+    windows, artifacts = (load(name) for name in ("windows", "artifacts"))
+    artifact_root = load("vm_environment").artifacts_dir()
+    if args.export_native and artifact_root is None:
+        parser.error("--export-native requires a verification artifact directory")
+    acceptance = X64Acceptance(ROOT)
+    host, env = acceptance.host, acceptance.env
+    env["DOTNET_GENERATE_ASPNET_CERTIFICATE"] = "false"
+
+    def inputs():
+        values = support_inputs(ROOT)
+        if args.packaged_desktop:
+            values[PACKAGED_FIXTURE] = artifacts.file_sha256(ROOT / PACKAGED_FIXTURE)
+        source = (
+            acceptance_source(ROOT, match_actions=True, environment=env) if artifact_root else None
         )
-    }
-    cargo_build.verify_units(units, dependencies, [TARGET], product.package, product.library)
-    local = ROOT / "build/windows"
-    output = (vm.artifacts_dir(env) or local) / RID
+        return source, values
+
+    before = inputs()
+    native = ffi_product(ROOT)
+    built = acceptance.build(native)
+    native_root = ROOT / ".native-build"
     with (
-        artifacts.build_lock(local),
-        tempfile.TemporaryDirectory(dir=local, prefix="candidate-") as directory,
+        artifacts.build_lock(native_root),
+        tempfile.TemporaryDirectory(dir=native_root, prefix="permissions-acceptance-") as directory,
     ):
         candidate = Path(directory)
+        library, import_library, native_receipt = acceptance.stage(native, built, candidate)
         fixture = candidate / "abi.exe"
-        library = artifacts.stage_native(
-            built / "system_permissions.dll", candidate / "system_permissions.dll"
-        )
-        import_library = artifacts.stage_native(
-            built / "system_permissions.dll.lib", candidate / "system_permissions.dll.lib"
-        )
-        native_hash = hashlib.sha256(library.read_bytes()).hexdigest()
-        expected = windows.verify_library(
-            library,
-            [ROOT / "crates/ffi/include/system_permissions.h"],
-            "system_permissions_",
-            tools,
-            env,
-            "x64",
-        )
-        windows.probe_abi(product, library, import_library, tools, env, "x64")
+        includes = ROOT / "crates/ffi/include"
         load("c_compiler").compile_c(
             ROOT / "crates/ffi/tests/c/abi.c",
             output=fixture,
-            compiler=[tools / "cl.exe"],
-            include_dirs=[ROOT / "crates/ffi/include"],
+            compiler=[acceptance.tools / "cl.exe"],
+            include_dirs=[includes],
             libraries=[import_library],
             flags=("/MT",),
             style="msvc",
-            cwd=ROOT,
+            cwd=candidate,
             env=env,
         )
         windows.require_pe_machine(fixture, "x64")
-        run(fixture)
+        acceptance.run(fixture)
         load("dotnet").run_managed(
-            dotnet,
+            acceptance.dotnet,
             ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
             cwd=ROOT,
             env=env,
             properties={"SystemPermissionsNativeLibrary": str(library)},
             verify_style=True,
         )
-        packages = pack_and_consume(dotnet, library, RID, env, candidate)
-        verify_packages(candidate / "packages", packages)
+        packages = pack_and_consume(acceptance.dotnet, library, RID, env, candidate)
+        if args.packaged_desktop:
+            check_packaged_desktop(fixture, library, host, env)
+        expected = {
+            file.name: native_receipt["outputs"][file.name] for file in (library, import_library)
+        }
+        if artifacts.hashes((library, import_library), candidate) != expected:
+            raise ValueError("Staged Windows files changed during acceptance")
+        if before != inputs():
+            raise ValueError("SDK inputs changed during Windows acceptance")
+        if windows.verify_artifact(native, "x64", environment=env)[1] != native_receipt:
+            raise ValueError("The Windows native build changed during acceptance")
+
         packaged_check = (
             "installed x64 MSIX identity, status, direct request and Settings admission"
         )
-        if args.packaged_desktop:
-            check_packaged_desktop(fixture, library, host, env)
-        if hashlib.sha256(library.read_bytes()).hexdigest() != native_hash:
-            raise ValueError("The staged Windows DLL changed during acceptance")
-        if distribution_inputs() != tool_inputs:
-            raise ValueError("SDK tool inputs changed during Windows acceptance")
-        if graph.provenance() != dependencies:
-            raise ValueError("Native dependencies changed during Windows acceptance")
         receipt = {
-            "target": TARGET,
+            "target": native_receipt["target"],
             "runtime": RID,
             "hostArchitecture": host,
-            "executionMode": "x64-emulation" if emulated else "native",
-            "compiler": compiler,
-            "toolInputs": tool_inputs,
-            "dependencies": dependencies,
-            "cargoBuild": units,
-            "exports": sorted(expected),
-            "abiVersions": product.abi_versions(windows=True),
+            "executionMode": "x64-emulation" if host == "arm64" else "native",
+            "compiler": native_receipt["compiler"],
+            "toolInputs": before[1],
+            "dependencies": native_receipt["dependencies"],
+            "cargoBuild": native_receipt["cargoBuild"],
+            "exports": native_receipt["inspection"]["exports"],
+            "abiVersions": native_receipt["abiVersions"],
             "abiProbeArchitecture": "x64",
-            "nativeSha256": native_hash,
+            "nativeSha256": expected[library.name],
             "packages": packages,
             "coverage": [
                 "Rust deterministic contracts",
@@ -251,11 +180,26 @@ def main(argv=None):
                 "product integration",
             ],
         }
+        if args.export_native:
+            verify_packages(candidate / "packages", packages)
+            name = f"{WINDOWS_ADAPTER}.{native.version}.nupkg"
+            companion = candidate / "companion"
+            artifacts.stage_file(candidate / "packages" / name, companion / name)
+            export_native(built, native_receipt, artifact_root, artifacts)
+            publish_package_evidence(
+                companion,
+                receipt | {"source": before[0][0], "packages": {name: packages[name]}},
+                receipt_name=RECEIPT,
+                destination=artifact_root / "sdk-nuget-companions",
+                tooling=artifacts,
+            )
+            print(f"Verified the Windows {RID} runtime and Windows adapter on {host}.")
+            return
         publish_package_evidence(
             candidate / "packages",
             receipt,
             receipt_name=RECEIPT,
-            destination=output,
+            destination=(artifact_root or (ROOT / "build/windows")) / RID,
             legacy_packages_directory=True,
             tooling=artifacts,
         )

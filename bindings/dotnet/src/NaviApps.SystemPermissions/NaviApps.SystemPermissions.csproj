@@ -13,6 +13,8 @@
     <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <PathMap>$(MSBuildProjectDirectory)=/system-permissions/dotnet</PathMap>
+    <GenerateDocumentationFile Condition="'$(SdkNativeRuntimeAssets)' != ''">true</GenerateDocumentationFile>
+    <NoWarn Condition="'$(SdkNativeRuntimeAssets)' != ''">$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <None Include="../../../../LICENSE" Pack="true" PackagePath="/" />
@@ -24,8 +26,11 @@
       <Link Condition="'$(OS)' != 'Windows_NT'">libsystem_permissions.dylib</Link>
     </None>
     <None Include="../../../../ThirdParty/**/*" Exclude="../../../../ThirdParty/**/.DS_Store;../../../../ThirdParty/**/registry-notices.json" Pack="true" PackagePath="licenses/" />
+    <None Include="$(SdkNativeRuntimeAssets)/**/*" Condition="'$(SdkNativeRuntimeAssets)' != ''"
+          Pack="true" PackagePath="runtimes/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <Target Name="RequireSystemPermissionsNativeAsset" BeforeTargets="GenerateNuspec">
-    <Error Condition="'$(SystemPermissionsRuntimeIdentifier)' == '' or !Exists('$(SystemPermissionsNativeLibrary)')" Text="Use the documented SystemPermissions distribution commands to select a source-built native runtime." />
+    <Error Condition="'$(SdkNativeRuntimeAssets)' == '' and ('$(SystemPermissionsRuntimeIdentifier)' == '' or !Exists('$(SystemPermissionsNativeLibrary)'))"
+           Text="Use the documented SystemPermissions distribution commands to select verified native runtimes." />
   </Target>
 </Project>

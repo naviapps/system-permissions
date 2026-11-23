@@ -15,7 +15,10 @@
     <PathMap>$(MSBuildProjectDirectory)=/system-permissions/dotnet/windows</PathMap>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../NaviApps.SystemPermissions/NaviApps.SystemPermissions.csproj" />
+    <ProjectReference Include="../NaviApps.SystemPermissions/NaviApps.SystemPermissions.csproj"
+                      Condition="'$(SystemPermissionsPackAdapter)' != 'true'" />
+    <PackageReference Include="NaviApps.SystemPermissions" Version="[$(Version)]"
+                      Condition="'$(SystemPermissionsPackAdapter)' == 'true'" />
     <None Include="../../../../LICENSE" Pack="true" PackagePath="/" />
     <None Include="../../README.md" Pack="true" PackagePath="/README.md" />
   </ItemGroup>

@@ -9,16 +9,40 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from sdk_tooling.adapters import load
+from sdk_tooling.check_options import select_dotnet_host
+from sdk_tooling.dotnet import subprocess_environment
+from sdk_tooling.native_plan import ffi_product
+
+from distribution.pack_nuget import DOTNET, PACKAGE, notice_files
 
 ROOT = Path(__file__).resolve().parents[1]
-DOTNET_PROJECTS = ("NaviApps.SystemPermissions", "NaviApps.SystemPermissions.Windows")
+WINDOWS_ADAPTER = PACKAGE + ".Windows"
 
 
 def run(*args, env):
     subprocess.run([str(a) for a in args], cwd=ROOT, env=env, check=True)
+
+
+def consume_pair(dotnet, packages, version, env, output, *, runtime=None, exclude_paths=()):
+    load("nuget").run_isolated_consumer(
+        dotnet,
+        packages=packages,
+        references={WINDOWS_ADAPTER: version},
+        source=(ROOT / "fixtures/consumers/dotnet/Program.cs").read_text(encoding="utf-8"),
+        work_parent=output,
+        env=env,
+        runtime=runtime,
+        properties={
+            "DefineConstants": "WINDOWS_ADAPTER",
+            "Nullable": "enable",
+            "TreatWarningsAsErrors": "true",
+        },
+        exclude_paths=exclude_paths,
+    )
 
 
 def pack_and_consume(dotnet, library, rid, env, output):
@@ -26,24 +50,30 @@ def pack_and_consume(dotnet, library, rid, env, output):
     native_name = "libsystem_permissions.dylib" if rid.startswith("osx-") else library.name
     staged = load("artifacts").stage_native(library, runtime / native_name)
     packages = output / "packages"
-    for name in DOTNET_PROJECTS:
-        load("dotnet").pack_project(
-            dotnet,
-            ROOT / "bindings/dotnet/src" / name / (name + ".csproj"),
-            output=packages,
-            cwd=ROOT,
-            env=env,
-            properties={
+    version = ffi_product(ROOT).version
+    for name, properties, sources in (
+        (
+            PACKAGE,
+            {
                 "SystemPermissionsRuntimeIdentifier": rid,
                 "SystemPermissionsNativeLibrary": str(staged),
             },
+            (),
+        ),
+        (WINDOWS_ADAPTER, {"SystemPermissionsPackAdapter": "true"}, (packages,)),
+    ):
+        load("dotnet").pack_project(
+            dotnet,
+            DOTNET / "src" / name / (name + ".csproj"),
+            output=packages,
+            cwd=ROOT,
+            env=dict(env, NUGET_PACKAGES=str(output / "adapter-restore")),
+            properties={"Version": version, **properties},
+            nuget_config=DOTNET / "NuGet.Config",
+            sources=sources,
         )
-    built = [packages / (name + ".0.1.0.nupkg") for name in DOTNET_PROJECTS]
-    notices = {
-        "licenses/" + path.relative_to(ROOT / "ThirdParty").as_posix(): path
-        for path in (ROOT / "ThirdParty").rglob("*")
-        if path.is_file() and path.name not in (".DS_Store", "registry-notices.json")
-    }
+    built = [packages / f"{name}.{version}.nupkg" for name in (PACKAGE, WINDOWS_ADAPTER)]
+    notices = notice_files()
     hashes = {
         package.name: load("nuget").audit_package(
             package,
@@ -55,18 +85,17 @@ def pack_and_consume(dotnet, library, rid, env, output):
             runtime_files={"runtimes/" + rid + "/native/" + native_name: library}
             if package == built[0]
             else {},
+            expected_dependencies=[] if package == built[0] else [(PACKAGE, f"[{version}]")],
         )
         for package in built
     }
-    load("nuget").run_isolated_consumer(
+    consume_pair(
         dotnet,
-        packages=built,
-        references={"NaviApps.SystemPermissions.Windows": "0.1.0"},
-        source=(ROOT / "fixtures/consumers/dotnet/Program.cs").read_text(encoding="utf-8"),
-        work_parent=output,
-        env=env,
+        built,
+        version,
+        env,
+        output,
         runtime=rid,
-        properties={"Nullable": "enable", "TreatWarningsAsErrors": "true"},
         exclude_paths=(ROOT / "target", runtime, library.parent),
     )
     return hashes
@@ -74,8 +103,21 @@ def pack_and_consume(dotnet, library, rid, env, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--library", type=Path, help="Explicit already source-built test library")
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument("--library", type=Path, help="Explicit already source-built test library")
+    inputs.add_argument("--feed", type=Path, help="Verify the combined core and adapter packages")
     args = parser.parse_args()
+    if args.feed is not None:
+        env = subprocess_environment()
+        target = "x64" if sys.platform == "win32" else None
+        dotnet, _, _ = select_dotnet_host(env, target)
+        version = ffi_product(ROOT).version
+        packages = [args.feed / f"{name}.{version}.nupkg" for name in (PACKAGE, WINDOWS_ADAPTER)]
+        with tempfile.TemporaryDirectory(prefix="system-permissions-feed-") as temporary:
+            consume_pair(
+                dotnet, packages, version, env, temporary, runtime="win-x64" if target else None
+            )
+        return
     if sys.platform != "darwin":
         raise SystemExit(
             "Use distribution/verify_windows.py to build x64 on an owned Windows worker"
@@ -126,7 +168,8 @@ def main():
         properties={"SystemPermissionsNativeLibrary": str(library)},
         verify_style=True,
     )
-    packages = pack_and_consume(dotnet, library, rid, env, output)
+    with tempfile.TemporaryDirectory(dir=output, prefix="consumer-") as temporary:
+        packages = pack_and_consume(dotnet, library, rid, env, Path(temporary))
     (output / "acceptance.json").write_text(
         json.dumps(
             {

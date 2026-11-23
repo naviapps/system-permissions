@@ -8,10 +8,12 @@ update rejection are shared Rust behavior, not managed policy tables.
 
 ## Install
 
-Use .NET 10 and a verified local feed containing the package for your runtime.
-Use `osx-arm64` or `osx-x64` on macOS 26 or later, or `win-x64` on Windows.
-On Windows 11 ARM64, use the x64 .NET SDK to run the `win-x64` package under
-emulation. Consumers need only .NET and the packages.
+Use .NET 10 and the verified `NaviApps.SystemPermissions` package from the
+[SDK distribution workflow](https://github.com/naviapps/sdk-tooling/actions/workflows/check-sdk-distribution.yml).
+The same package contains `osx-arm64` and `osx-x64` for macOS 26 or later and
+`win-x64` for Windows. On Windows 11 ARM64, use x64 .NET to run it under
+emulation. Use the Windows adapter package for host calls such as checking
+packaged desktop permissions.
 
 ### Try the installed package
 
@@ -39,13 +41,24 @@ Console.WriteLine(camera == PermissionDescriptor.Camera);
 dotnet run --no-restore
 ```
 
-The check prints `True`. Use `NaviApps.SystemPermissions.Windows` instead when the application uses
-the Windows adapter. The feed must contain both packages from the same build.
-Choose one build for each package ID and version. Local builds for different
-runtimes share a version, so use a fresh package cache when switching feeds or
-rebuilding a candidate. [NuGet package cache resolution](https://learn.microsoft.com/en-us/nuget/consume-packages/managing-the-global-packages-and-cache-folders).
+The check prints `True`. For a Windows application that uses the adapter,
+reference `NaviApps.SystemPermissions.Windows`. Download the core
+`system-permissions-nuget-<revision>-<attempt>` and the adapter
+`system-permissions-nuget-companions-<revision>-<attempt>` from the same
+successful distribution run. Place both `.nupkg` files in the same feed
+directory. Run the same commands above, replacing the package name with
+`NaviApps.SystemPermissions.Windows`. The adapter brings in the matching core.
+Use a fresh package cache each time you switch feeds or rebuild a candidate.
+[NuGet package cache resolution](https://learn.microsoft.com/en-us/nuget/consume-packages/managing-the-global-packages-and-cache-folders).
 
-### Build packages on macOS
+From the SDK checkout used for the distribution run, verify the exact downloaded
+core and adapter together with a fresh local-only restore and execution.
+
+```sh
+mise run sdk-tooling -- python distribution/verify_bindings.py --feed "LOCAL_PACKAGE_DIRECTORY"
+```
+
+### Verify bindings on macOS
 
 From the repository root, prepare the pinned tools described in the
 [developer setup](../../README.md#development-and-verification), then run
@@ -54,8 +67,9 @@ From the repository root, prepare the pinned tools described in the
 mise exec -- make test-bindings
 ```
 
-This uses the tracked framework, runs C and managed fixtures and packs both
-projects into `build/bindings/packages/` for the current Mac architecture.
+This uses the tracked framework and runs C, managed, and local NuGet fixtures.
+The per-host package pair is temporary. The distribution workflow is the source
+for the combined package.
 
 ### Build packages on Windows
 
@@ -83,7 +97,9 @@ mise run sdk-tooling -- windows distribution/verify_windows.py
 The script selects ARM64-hosted x64 MSVC on an ARM64 worker and native x64 MSVC
 on an x64 worker. Keep `DOTNET_BIN` set to the absolute x64 executable on ARM64.
 
-The script places both packages and their receipt in `build/windows/win-x64/`.
+The script places the Windows-only validation feed containing the core and
+adapter packages with their receipt in `build/windows/win-x64/`. Keep this feed
+separate from the combined package feed.
 On ARM64, Windows executes the x64 Rust and C fixtures and the x64 .NET process
 through emulation. The C fixture, managed fixture and NuGet package use the
 same staged DLL. The receipt records its SHA-256, target, host, execution mode
@@ -91,7 +107,10 @@ and SHA-256 hashes of the pinned distribution tooling.
 When `VM_RUNNER_ARTIFACTS_DIR` is set, it writes the verified pair and receipt directly
 into that directory's `win-x64` subdirectory.
 The public Windows x64 workflow runs Rust and managed binding tests. SDK Tooling's
-hosted distribution check also installs an owned, temporary x64 MSIX to check
+hosted distribution check exercises the paired feed in a private workspace,
+uploads the verified Windows adapter with its receipt, and transfers
+the tested Windows DLL for the combined core package. The same check
+installs an owned, temporary x64 MSIX to check
 package identity, nonprompting status, unsupported direct consent and Settings
 admission. The fixture removes its package and signing certificate after the test.
 The local command also supports x64 emulation on Windows ARM64.
@@ -247,6 +266,7 @@ They do not start a VM or request permissions. Source checks use the
 `SystemPermissionsNativeLibrary` MSBuild property to copy the selected native
 library beside the managed output.
 
-macOS validation consumes the tracked CSystemPermissions framework binary without rebuilding
-or modifying it. Local NuGet staging preserves those bytes under the portable native
-filename. Windows packages use the source-built DLL for the selected process architecture.
+macOS validation uses the tracked CSystemPermissions framework. The combined
+package stages a standalone signed copy of its macOS library and stages the
+Windows DLL from the verified native build. The workflow exercises the same
+core package bytes on both macOS architectures and Windows x64.

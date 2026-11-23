@@ -1,13 +1,10 @@
 """Exercise Windows host selection, child commands and receipts using owned fixtures."""
 
-import hashlib
 import json
-import os
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 from distribution import verify_windows as windows
 
@@ -66,336 +63,166 @@ class BuildRouteTests(unittest.TestCase):
             )
         run.assert_not_called()
 
-    def test_x64_is_the_target_on_both_hosts(self):
-        for host in ("arm64", "x64"):
+    def test_checks_the_adapter_pair_before_exporting_the_native_build(self):
+        for host in ("x64", "arm64"):
             with self.subTest(host=host):
-                self.check_route(host)
+                self.check_route(host, export_native=True)
 
-    def test_local_publish_flattens_the_legacy_package_pair(self):
+    def test_local_publish_flattens_the_legacy_pair(self):
         self.check_route("x64", use_artifact_root=False)
 
-    def test_refuses_to_publish_after_sdk_tool_inputs_change(self):
-        self.check_route("arm64", change_inputs=True)
+    def test_refuses_evidence_when_inputs_change(self):
+        self.check_route("arm64", change_inputs=True, export_native=True)
 
-    def test_rejects_a_non_x64_c_fixture_before_running_it(self):
+    def test_rejects_a_non_x64_consumer_before_running_it(self):
         self.check_route("arm64", fixture_machine=0xAA64)
 
-    def test_requires_pinned_dotnet_before_cargo(self):
-        self.check_route("arm64", dotnet_version="10.0.404")
-
-    def test_requires_x64_rust_standard_library_before_cargo(self):
-        self.check_route("arm64", missing_stdlib=True)
-
-    def test_x64_retry_preserves_previous_package_pair_when_receipt_write_fails(self):
-        self.check_route("arm64", retry=True)
-
-    def test_x64_managed_packages_use_the_dll_already_loaded_by_the_c_fixture(self):
-        self.check_route("arm64", replace_dll=True)
-
-    def test_x64_refuses_to_publish_when_the_staged_dll_changes(self):
-        self.check_route("arm64", change_staged=True)
+    def test_refuses_evidence_when_accepted_files_change(self):
+        for change in ("staged", "native"):
+            with self.subTest(change=change):
+                self.check_route("arm64", change_files=change, export_native=True)
 
     def check_route(
         self,
         host,
         *,
-        dotnet_version="10.0.403",
-        missing_stdlib=False,
-        retry=False,
-        replace_dll=False,
-        change_staged=False,
-        change_inputs=False,
-        fixture_machine=0x8664,
         use_artifact_root=True,
+        export_native=False,
+        change_inputs=False,
+        change_files=None,
+        fixture_machine=0x8664,
     ):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory).resolve()
-            target, rid = "x86_64-pc-windows-msvc", "win-x64"
-            library = root / "target" / target / "release/system_permissions.dll"
+            root = Path(directory)
+            built = root / ".native-build/windows/win-x64"
+            library = built / "system_permissions.dll"
             write_pe(library, 0x8664)
-            accepted_dll = library.read_bytes()
-            library.with_suffix(".dll.lib").write_bytes(b"accepted import library")
-            (root / "rust-toolchain.toml").write_text('[toolchain]\nchannel = "1.99.1"\n')
-            (root / "global.json").write_text(
-                '{"sdk":{"version":"10.0.403","rollForward":"disable"}}'
+            import_library = built / (library.name + ".lib")
+            import_library.write_bytes(b"accepted import library")
+            artifacts = windows.load("artifacts")
+            windows_tools = Mock(wraps=windows.load("windows"))
+            receipt_path = built / "native-build.json"
+            abi = "system_permissions_abi_version"
+            native_receipt = {
+                "outputs": artifacts.hashes((library, import_library), built),
+                "target": "x86_64-pc-windows-msvc",
+                "compiler": "rustc 1.99.1",
+                "abiVersions": {abi: 2},
+                "dependencies": {},
+                "cargoBuild": {},
+                "inspection": {"exports": [abi]},
+            }
+            receipt_path.write_text(json.dumps(native_receipt), encoding="utf-8")
+            windows_tools.verify_artifact.return_value = (
+                built,
+                {} if change_files == "native" else native_receipt,
             )
-            support = windows.load("windows")
-            tool_inputs = {"distribution/verify_windows.py": "a" * 64}
-            final_inputs = (
-                {"distribution/verify_windows.py": "d" * 64} if change_inputs else tool_inputs
+            artifact_root = root / "evidence" if use_artifact_root else None
+            destination = (artifact_root or (root / "build/windows")) / windows.RID
+            transfer = root / "evidence/sdk-windows/win-x64"
+            companions = root / "evidence/sdk-nuget-companions"
+            arguments = ["--export-native"] if export_native else []
+            packages = (
+                "NaviApps.SystemPermissions.0.1.0.nupkg",
+                "NaviApps.SystemPermissions.Windows.0.1.0.nupkg",
             )
-            libdir = root / "stdlib" / target
-            libdir.mkdir(parents=True)
-            if not missing_stdlib:
-                (libdir / "libstd-fixture.rlib").touch()
-            tools = root / "msvc"
-            dotnet = str(root / "dotnet.exe")
-            artifact_root = root / "evidence"
-            env = {"CARGO_ENCODED_RUSTFLAGS": "", "PATH": ""}
-            if use_artifact_root:
-                env["VM_RUNNER_ARTIFACTS_DIR"] = str(artifact_root)
-            environment = env, tools, dotnet
-            build_root = root / "build/windows"
-            destination = (artifact_root if use_artifact_root else build_root) / rid
-            (root / library.name).write_bytes(b"stale DLL outside the fixture")
-            payload = b"package fixture"
-            write_failure = False
-            package_names = ("Permission.0.1.0.nupkg", "Permission.Windows.0.1.0.nupkg")
             if not use_artifact_root:
                 legacy = destination / "packages"
                 legacy.mkdir(parents=True)
-                for name in package_names:
-                    (destination / name).write_bytes(b"previous package")
+                for name in packages:
                     (legacy / name).write_bytes(b"previous package")
-
-            def compile_fixture(*_args, output, **_kwargs):
-                write_pe(output, fixture_machine)
-
-            def stage_fixture(source, destination):
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(source, destination)
-                return destination
-
-            def pack_fixture(_dotnet, selected_library, _rid, _env, output):
-                self.assertEqual(selected_library.read_bytes(), accepted_dll)
-                packages = output / "packages"
-                packages.mkdir()
-                for name in package_names:
-                    (packages / name).write_bytes(payload)
-                if change_staged:
-                    selected_library.write_bytes(accepted_dll + b"changed staged library")
-                return dict.fromkeys(package_names, hashlib.sha256(payload).hexdigest())
-
-            def run_fixture(command, **_kwargs):
-                if Path(command[0]).name == "abi.exe":
-                    staged_dll = Path(command[0]).with_name(library.name)
-                    self.assertEqual(staged_dll.read_bytes(), accepted_dll)
-                    if replace_dll:
-                        replacement = library.with_name("replacement.dll")
-                        replacement.write_bytes(accepted_dll + b"concurrent Cargo output")
-                        replacement.replace(library)
-
-            def managed_fixture(_dotnet, _project, *, properties, **_kwargs):
-                selected_library = Path(properties["SystemPermissionsNativeLibrary"])
-                self.assertEqual(selected_library.read_bytes(), accepted_dll)
-
-            def report_fixture(path, data):
-                for name, digest in data["packages"].items():
-                    copied = (path.parent / name).read_bytes()
-                    self.assertEqual(hashlib.sha256(copied).hexdigest(), digest)
-                if write_failure:
-                    raise OSError("Fixture receipt write failed")
-                path.write_text(json.dumps(data), encoding="utf-8")
-
-            windows_tools = Mock(wraps=support, MSVC_TARGETS=support.MSVC_TARGETS)
-            windows_tools.host_architecture.return_value = host
-            windows_tools.native_environment.return_value = environment
-            windows_tools.verify_library.return_value = {"system_permissions_abi_version"}
-            windows_tools.probe_abi.return_value = None
-            product = Mock()
-            product.package = "system-permissions-ffi"
-            product.library = "system_permissions"
-            product.abi_versions.return_value = {"system_permissions_abi_version": 2}
-            c_compiler = Mock()
-            c_compiler.compile_c.side_effect = compile_fixture
-            dotnet_tools = Mock()
-            dotnet_tools.run_managed.side_effect = managed_fixture
-            artifacts_tools = Mock(wraps=windows.load("artifacts"))
-            artifacts_tools.stage_native.side_effect = stage_fixture
-            artifacts_tools.write_json.side_effect = report_fixture
-            cargo_tools = Mock()
-            cargo_tools.CargoDependencies.return_value.provenance.return_value = {
-                "roots": [product.package]
-            }
-            cargo_build_tools = Mock()
-            cargo_build_tools.compile_units.return_value = [{"targetName": product.library}]
-            ffi_tools = Mock(DARWIN_TARGETS=("aarch64-apple-darwin", "x86_64-apple-darwin"))
-            compiler = "rustc 1.99.1 (fixture)"
-            info = f"{compiler}\nhost: {support.MSVC_TARGETS[host]}\n"
-            outputs = {
-                (dotnet, "--version"): dotnet_version + "\n",
-                ("rustc", "--version", "--verbose"): info,
-                ("rustc", "--print", "target-libdir", "--target", target): str(libdir) + "\n",
-            }
-            modules = {
+            scope = {
+                "artifacts": artifacts,
                 "windows": windows_tools,
-                "c_compiler": c_compiler,
-                "dotnet": dotnet_tools,
-                "artifacts": artifacts_tools,
-                "cargo": cargo_tools,
-                "cargo_build": cargo_build_tools,
-                "ffi": ffi_tools,
+                "vm_environment": Mock(artifacts_dir=Mock(return_value=artifact_root)),
+                "c_compiler": Mock(
+                    compile_c=Mock(
+                        side_effect=lambda *a, output, **k: write_pe(output, fixture_machine)
+                    )
+                ),
+                "dotnet": Mock(),
             }
+            acceptance = Mock(host=host, env={}, tools=root / "msvc", dotnet="dotnet.exe")
+            acceptance.build.return_value = built
+
+            def stage(_native, _built, candidate):
+                return (
+                    artifacts.stage_native(library, candidate / library.name),
+                    artifacts.stage_native(import_library, candidate / import_library.name),
+                    native_receipt,
+                )
+
+            def pack(_dotnet, selected_library, _rid, _env, candidate):
+                self.assertEqual(selected_library.read_bytes(), library.read_bytes())
+                self.assertEqual(acceptance.run.call_args.args[0].parent, selected_library.parent)
+                output = candidate / "packages"
+                output.mkdir()
+                for name in packages:
+                    (output / name).write_bytes(b"verified package")
+                if change_files == "staged":
+                    selected_library.write_bytes(b"changed after acceptance")
+                return artifacts.hashes(artifacts.files(output), output)
+
+            acceptance.stage.side_effect = stage
+            first = {"distribution/verify_windows.py": "a" * 64}
+            second = {"distribution/verify_windows.py": "b" * 64} if change_inputs else first
             with (
                 patch.object(windows, "ROOT", root),
-                patch.object(windows, "ffi_product", return_value=product),
-                patch.object(windows, "load", side_effect=modules.get),
-                patch.object(
-                    windows, "support_inputs", side_effect=(tool_inputs, final_inputs) * 3
-                ),
-                patch.object(
-                    windows.subprocess,
-                    "check_output",
-                    side_effect=lambda args, **_: outputs[tuple(args)],
-                ),
-                patch.object(windows.subprocess, "run", side_effect=run_fixture) as run,
-                patch.object(windows, "pack_and_consume", side_effect=pack_fixture) as pack,
-                patch.dict(os.environ, {"DOTNET_HOST_PATH": "other architecture"}),
-                patch("builtins.print") as report,
+                patch.object(windows, "load", side_effect=scope.__getitem__),
+                patch.object(windows, "X64Acceptance", return_value=acceptance),
+                patch.object(windows, "ffi_product", return_value=Mock(version="0.1.0")),
+                patch.object(windows, "support_inputs", side_effect=(first, second)),
+                patch.object(windows, "acceptance_source", return_value=("a" * 40, None)),
+                patch.object(windows, "pack_and_consume", side_effect=pack) as installed,
+                patch("builtins.print"),
             ):
-                if dotnet_version != "10.0.403" or missing_stdlib:
-                    pattern = (
-                        "pinned Rust standard library" if missing_stdlib else "pinned x64 .NET"
-                    )
-                    with self.assertRaisesRegex(SystemExit, pattern):
-                        windows.main([])
-                    run.assert_not_called()
-                    return
-                if fixture_machine != 0x8664:
-                    with self.assertRaisesRegex(ValueError, "target-native x64 PE image"):
-                        windows.main([])
-                    self.assertTrue(
-                        all(Path(call.args[0][0]).name != "abi.exe" for call in run.call_args_list)
-                    )
-                    dotnet_tools.run_managed.assert_not_called()
-                    pack.assert_not_called()
-                    artifacts_tools.publish.assert_not_called()
-                    return
-                if change_staged:
-                    with self.assertRaisesRegex(ValueError, "staged Windows DLL changed"):
-                        windows.main([])
-                    artifacts_tools.publish.assert_not_called()
+                failures = (
+                    (fixture_machine != 0x8664, "target-native x64 PE image"),
+                    (change_files == "staged", "Staged Windows files changed"),
+                    (change_inputs, "SDK inputs changed"),
+                    (change_files == "native", "Windows native build changed"),
+                )
+                if error := next((message for failed, message in failures if failed), None):
+                    with self.assertRaisesRegex(ValueError, error):
+                        windows.main(arguments)
                     self.assertFalse(destination.exists())
+                    self.assertFalse(transfer.exists())
+                    self.assertFalse(companions.exists())
+                    if fixture_machine != 0x8664:
+                        acceptance.run.assert_not_called()
+                        scope["dotnet"].run_managed.assert_not_called()
+                        installed.assert_not_called()
                     return
-                if change_inputs:
-                    with self.assertRaisesRegex(ValueError, "SDK tool inputs changed"):
-                        windows.main([])
-                    pack.assert_called_once()
-                    artifacts_tools.publish.assert_not_called()
-                    return
-                windows.main([])
-                if retry:
-                    receipt = destination / "system-permissions-windows.json"
-                    previous_receipt = receipt.read_bytes()
-                    payload = b"package rebuilt on retry"
-                    write_failure = True
-                    with self.assertRaisesRegex(OSError, "Fixture receipt write failed"):
-                        windows.main([])
-                    self.assertEqual(receipt.read_bytes(), previous_receipt)
-                    for name in package_names:
-                        self.assertEqual((destination / name).read_bytes(), b"package fixture")
-                    write_failure = False
-                    windows.main([])
-                    self.assertEqual(
-                        json.loads(receipt.read_bytes())["packages"],
-                        dict.fromkeys(package_names, hashlib.sha256(payload).hexdigest()),
-                    )
-                    for name in package_names:
-                        self.assertEqual((destination / name).read_bytes(), payload)
-                    return
-            cargo_tools.runtime_notices.assert_called_once_with(root, env)
+                windows.main(arguments)
+
+            if export_native:
+                self.assertFalse(destination.exists())
+                self.assertEqual(
+                    artifacts.hashes(artifacts.files(transfer), transfer),
+                    artifacts.hashes(artifacts.files(built), built),
+                )
+                evidence = json.loads((companions / windows.RECEIPT).read_bytes())
+                adapter = packages[1]
+                self.assertEqual(
+                    {entry.name for entry in companions.iterdir()}, {adapter, windows.RECEIPT}
+                )
+                self.assertEqual(
+                    evidence["packages"], {adapter: artifacts.file_sha256(companions / adapter)}
+                )
+                return
+            self.assertFalse(transfer.exists())
+            self.assertFalse(companions.exists())
+            evidence = json.loads((destination / windows.RECEIPT).read_bytes())
             self.assertEqual(
-                cargo_tools.CargoDependencies.call_args_list,
-                [
-                    call(
-                        root,
-                        (product.package,),
-                        ("aarch64-apple-darwin", "x86_64-apple-darwin", target),
-                        env,
-                    ),
-                    call(root, [product.package], [target], env),
-                ],
+                evidence["executionMode"], "native" if host == "x64" else "x64-emulation"
             )
-            compile_command = cargo_build_tools.compile_units.call_args.args[0]
-            self.assertIn("--message-format=json-render-diagnostics", compile_command)
-            self.assertEqual(cargo_build_tools.compile_units.call_args.kwargs["library"], library)
-            cargo_build_tools.verify_units.assert_called_once_with(
-                {target: [{"targetName": product.library}]},
-                {"roots": [product.package]},
-                [target],
-                product.package,
-                product.library,
-            )
-            cargo_tools.CargoDependencies.return_value.retain_notices.assert_called_once_with()
-            invocation = windows_tools.native_environment.call_args
-            self.assertEqual(invocation.args[0], host)
-            self.assertEqual(invocation.kwargs, {"target_architecture": "x64"})
-            self.assertNotIn("DOTNET_HOST_PATH", invocation.args[1])
-            self.assertEqual(invocation.args[1]["DOTNET_GENERATE_ASPNET_CERTIFICATE"], "false")
-            commands = [call.args[0] for call in run.call_args_list]
-            self.assertEqual(
-                commands[0],
-                [
-                    "cargo",
-                    "fetch",
-                    "--locked",
-                    "--target",
-                    target,
-                    "--target",
-                    "aarch64-apple-darwin",
-                    "--target",
-                    "x86_64-apple-darwin",
-                ],
-            )
-            fixture = Path(commands[-1][0])
-            self.assertEqual(fixture.name, "abi.exe")
-            self.assertEqual(fixture.parent.parent, build_root)
-            self.assertFalse(fixture.parent.exists())
-            self.assertEqual(
-                {entry.name for entry in build_root.iterdir()},
-                {"native.lock"} if use_artifact_root else {"native.lock", rid},
-            )
-            self.assertEqual(artifact_root.exists(), use_artifact_root)
+            self.assertEqual(evidence["abiVersions"], {abi: 2})
+            self.assertEqual(evidence["nativeSha256"], artifacts.file_sha256(library))
+            self.assertEqual(set(evidence["packages"]), set(packages))
             self.assertEqual(
                 {entry.name for entry in destination.iterdir()},
-                {*package_names, "system-permissions-windows.json"},
+                {*packages, windows.RECEIPT},
             )
-            self.assertEqual(
-                [command[1] for command in commands if "--target" in command],
-                ["fetch", "clippy", "test"],
-            )
-            self.assertTrue(
-                all(
-                    command[command.index("--target") + 1] == target
-                    for command in [*commands, compile_command]
-                    if "--target" in command
-                )
-            )
-            self.assertEqual(windows_tools.verify_library.call_args.args[-1], "x64")
-            accepted_copy = fixture.parent / library.name
-            self.assertEqual(windows_tools.verify_library.call_args.args[0], accepted_copy)
-            self.assertEqual(
-                windows_tools.probe_abi.call_args.args,
-                (product, accepted_copy, accepted_copy.with_suffix(".dll.lib"), tools, env, "x64"),
-            )
-            self.assertEqual(
-                c_compiler.compile_c.call_args.kwargs["libraries"],
-                [accepted_copy.with_suffix(".dll.lib")],
-            )
-            self.assertEqual(dotnet_tools.run_managed.call_args.args[0], dotnet)
-            self.assertEqual(
-                dotnet_tools.run_managed.call_args.kwargs["properties"],
-                {"SystemPermissionsNativeLibrary": str(accepted_copy)},
-            )
-            self.assertNotIn(str(library.parent), env["PATH"].split(os.pathsep))
-            pack.assert_called_once_with(dotnet, accepted_copy, rid, env, fixture.parent)
-            receipt = json.loads((destination / "system-permissions-windows.json").read_bytes())
-            self.assertEqual(receipt["nativeSha256"], hashlib.sha256(accepted_dll).hexdigest())
-            self.assertEqual(receipt["abiVersions"], {"system_permissions_abi_version": 2})
-            self.assertEqual(receipt["abiProbeArchitecture"], "x64")
-            self.assertEqual(receipt["target"], target)
-            self.assertEqual(receipt["runtime"], rid)
-            self.assertEqual(receipt["toolInputs"], tool_inputs)
-            self.assertEqual(receipt["hostArchitecture"], host)
-            self.assertEqual(
-                receipt["executionMode"], "native" if host == "x64" else "x64-emulation"
-            )
-            report.assert_called_once_with(
-                f"Windows {rid} nonprompting acceptance passed on {host} "
-                f"({receipt['executionMode']})."
-            )
-            for name in package_names:
-                self.assertEqual((destination / name).read_bytes(), payload)
 
 
 if __name__ == "__main__":
