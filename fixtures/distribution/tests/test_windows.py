@@ -138,7 +138,7 @@ class BuildRouteTests(unittest.TestCase):
             artifact_root = root / "evidence"
             env = {"CARGO_ENCODED_RUSTFLAGS": "", "PATH": ""}
             if use_artifact_root:
-                env["NAVI_CI_ARTIFACTS"] = str(artifact_root)
+                env["VM_RUNNER_ARTIFACTS_DIR"] = str(artifact_root)
             environment = env, tools, dotnet
             build_root = root / "build/windows"
             destination = (artifact_root if use_artifact_root else build_root) / rid

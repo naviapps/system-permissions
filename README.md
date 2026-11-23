@@ -307,12 +307,12 @@ Run local distribution checks with the same pinned tooling:
 mise exec -- make check-distribution
 ```
 
-To run the hosted macOS and Windows distribution checks, set `SDK_COMMIT_SHA`
-to the full SDK commit SHA from `main` and dispatch the workflow:
+Run the hosted macOS and Windows distribution checks from the SDK checkout at
+the intended commit on `main`:
 
 ```sh
 gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
-  -f sdk=system-permissions -f revision="$SDK_COMMIT_SHA"
+  -f sdk=system-permissions -f "revision=$(git rev-parse HEAD)"
 ```
 
 `make check-distribution` verifies the tracked framework, builds both Swift API

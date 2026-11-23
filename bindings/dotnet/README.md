@@ -52,7 +52,7 @@ On ARM64, Windows executes the x64 Rust and C fixtures and the x64 .NET process
 through emulation. The C fixture, managed fixture and NuGet package use the
 same staged DLL. The receipt records its SHA-256, target, host, execution mode
 and SHA-256 hashes of the pinned distribution tooling.
-When `NAVI_CI_ARTIFACTS` is set, it writes the verified pair and receipt directly
+When `VM_RUNNER_ARTIFACTS_DIR` is set, it writes the verified pair and receipt directly
 into that directory's `win-x64` subdirectory.
 The public Windows x64 workflow runs Rust and managed binding tests. The
 SDK Tooling distribution workflow runs the full x64 package checks. The local

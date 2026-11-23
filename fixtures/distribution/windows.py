@@ -10,6 +10,7 @@ import tempfile
 import tomllib
 from pathlib import Path
 
+from sdk_tooling import vm_environment as vm
 from sdk_tooling.adapters import load, support_inputs
 
 from fixtures.distribution.bindings import pack_and_consume
@@ -166,7 +167,7 @@ def main(argv=None):
     )
     built = ROOT / "target" / TARGET / "release"
     local = ROOT / "build/windows"
-    output = Path(env.get("NAVI_CI_ARTIFACTS") or local) / RID
+    output = (vm.artifacts_dir(env) or local) / RID
     with (
         artifact_tooling.build_lock(local),
         tempfile.TemporaryDirectory(dir=local, prefix="candidate-") as directory,

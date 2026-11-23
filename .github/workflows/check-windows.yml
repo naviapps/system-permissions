@@ -20,17 +20,12 @@ jobs:
       DOTNET_CLI_USE_MSBUILD_SERVER: "0"
       MSBUILDDISABLENODEREUSE: "1"
       GIT_TERMINAL_PROMPT: "0"
-      RUST_TARGET: "x86_64-pc-windows-msvc"
+      CARGO_BUILD_TARGET: "x86_64-pc-windows-msvc"
     steps:
       - uses: actions/checkout@v6.1.0
         with:
           persist-credentials: false
-      - name: Install pinned Rust toolchain
-        run: rustup install --no-self-update
-      - name: Check Rust formatting
-        run: cargo fmt --all -- --check
-      - name: Test Rust workspace
-        run: cargo test --workspace --locked --target $env:RUST_TARGET
+      - uses: naviapps/sdk-tooling/.github/actions/test-rust-windows@0b6738f73b1b7081f75c212a79efeaf5ee62a92c
       - uses: actions/setup-dotnet@v6.0.0
         env:
           DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
@@ -38,8 +33,8 @@ jobs:
           dotnet-version: "10.0.403"
           architecture: x64
       - name: Build native binding library
-        run: cargo build --locked --target $env:RUST_TARGET -p system-permissions-ffi
+        run: cargo build --locked -p system-permissions-ffi
       - name: Test .NET bindings
         run: |
-          $env:SYSTEM_PERMISSIONS_NATIVE_LIBRARY = Join-Path $PWD "target/$env:RUST_TARGET/debug/system_permissions.dll"
+          $env:SYSTEM_PERMISSIONS_NATIVE_LIBRARY = Join-Path $PWD "target/$env:CARGO_BUILD_TARGET/debug/system_permissions.dll"
           dotnet run --project bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj --configuration Release
