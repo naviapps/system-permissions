@@ -155,8 +155,8 @@ fn validated_metadata(
         _ => Options::None,
     };
     if platform == Platform::Windows {
-        // The Windows adapter implements these AppCapability APIs. Runtime availability
-        // (including package identity) remains a native result, not an inferred grant.
+        // Desktop Windows exposes an observation and a Settings destination.
+        // AppCapability's consent UI requires a UWP CoreWindow.
         // Other macOS domains deliberately have no invented Windows TCC counterpart.
         let url = match permission.id.as_str() {
             "camera" => Some("ms-settings:privacy-webcam"),
@@ -164,13 +164,12 @@ fn validated_metadata(
             "location" => Some("ms-settings:privacy-location"),
             _ => None,
         };
-        let direct = url.is_some();
         return Ok(Metadata {
             default_options,
             usage_description_keys: vec![],
             capability: Capability {
-                supports_status_check: direct,
-                supports_request: direct,
+                supports_status_check: url.is_some(),
+                supports_request: false,
                 system_settings_url: url.map(str::to_owned),
                 requires_relaunch: false,
             },

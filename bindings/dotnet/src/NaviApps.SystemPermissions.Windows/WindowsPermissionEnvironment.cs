@@ -45,8 +45,8 @@ public sealed class SynchronizationContextPermissionDispatcher(SynchronizationCo
     }
 }
 
-/// <summary>Native Windows privacy effects. No OS requests are made by construction,
-/// metadata, tracking or status. Unpackaged AppCapability status is conservatively unavailable.</summary>
+/// <summary>Observe Windows privacy status and open its Settings pages. Direct consent
+/// requests are unsupported for desktop applications.</summary>
 public sealed class WindowsPermissionEnvironment(IWindowsPermissionDispatcher dispatcher) : IPermissionEnvironment
 {
     public PermissionPlatform Platform => PermissionPlatform.Windows;
@@ -63,42 +63,13 @@ public sealed class WindowsPermissionEnvironment(IWindowsPermissionDispatcher di
         }, cancellationToken);
     }
 
-    public async Task<PermissionOperationResult> RequestAsync(PermissionDescriptor permission, PermissionOptions options, CancellationToken cancellationToken)
+    public Task<PermissionOperationResult> RequestAsync(PermissionDescriptor permission, PermissionOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!OperatingSystem.IsWindows()) return Unavailable();
-        var start = await dispatcher.InvokeAsync(() => Native.Call(new { op = "windowsRequest", permission, options }), cancellationToken).ConfigureAwait(false);
-        if (start.TryGetProperty("result", out var immediate))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Native.Read<PermissionOperationResult>(immediate);
-        }
-        ulong token = start.GetProperty("token").GetUInt64();
-        bool consumed = false;
-        try
-        {
-            while (true)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var poll = await Task.Run(() => Native.Call(new { op = "windowsPollRequest", token }), cancellationToken).ConfigureAwait(false);
-                if (poll.TryGetProperty("result", out var result))
-                {
-                    consumed = true;
-                    cancellationToken.ThrowIfCancellationRequested();
-                    return Native.Read<PermissionOperationResult>(result);
-                }
-                await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            if (!consumed)
-            {
-                // Always release the native operation, even when the caller cancelled.
-                // The OS may already have shown UI; cancellation cannot retract consent.
-                await Task.Run(() => Native.Call(new { op = "windowsCancelRequest", token })).ConfigureAwait(false);
-            }
-        }
+        if (!OperatingSystem.IsWindows()) return Task.FromResult(Unavailable());
+        var result = Native.Call(new { op = "windowsRequest", permission, options }).GetProperty("result");
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Native.Read<PermissionOperationResult>(result));
     }
 
     public Task<PermissionSettingsResult> OpenSettingsAsync(PermissionDescriptor permission, PermissionOptions options, CancellationToken cancellationToken)

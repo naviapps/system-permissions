@@ -53,6 +53,19 @@ class CrossEnvironmentTests(unittest.TestCase):
 
 
 class BuildRouteTests(unittest.TestCase):
+    def test_msix_fixture_never_runs_on_a_shared_worker(self):
+        with (
+            patch.object(windows.subprocess, "run") as run,
+            self.assertRaisesRegex(ValueError, "disposable GitHub-hosted"),
+        ):
+            windows.check_packaged_desktop(
+                Path("abi.exe"),
+                Path("system_permissions.dll"),
+                "x64",
+                {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "self-hosted"},
+            )
+        run.assert_not_called()
+
     def test_x64_is_the_target_on_both_hosts(self):
         for host in ("arm64", "x64"):
             with self.subTest(host=host):
@@ -182,7 +195,7 @@ class BuildRouteTests(unittest.TestCase):
             product = Mock()
             product.package = "system-permissions-ffi"
             product.library = "system_permissions"
-            product.abi_versions.return_value = {"system_permissions_abi_version": 1}
+            product.abi_versions.return_value = {"system_permissions_abi_version": 2}
             c_compiler = Mock()
             c_compiler.compile_c.side_effect = compile_fixture
             dotnet_tools = Mock()
@@ -368,7 +381,7 @@ class BuildRouteTests(unittest.TestCase):
             pack.assert_called_once_with(dotnet, accepted_copy, rid, env, fixture.parent)
             receipt = json.loads((destination / "system-permissions-windows.json").read_bytes())
             self.assertEqual(receipt["nativeSha256"], hashlib.sha256(accepted_dll).hexdigest())
-            self.assertEqual(receipt["abiVersions"], {"system_permissions_abi_version": 1})
+            self.assertEqual(receipt["abiVersions"], {"system_permissions_abi_version": 2})
             self.assertEqual(receipt["abiProbeArchitecture"], "x64")
             self.assertEqual(receipt["target"], target)
             self.assertEqual(receipt["runtime"], rid)

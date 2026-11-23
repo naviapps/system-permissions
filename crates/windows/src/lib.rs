@@ -6,21 +6,14 @@
 //! maps to Restricted, independently of the user's privacy choice. Accessibility, input
 //! injection and screen capture have no universal privacy toggle represented here.
 //!
-//! RequestAccessAsync must start on the host's existing STA UI thread. `request` returns
-//! promptly; callers poll off the UI thread and always cancel abandoned tokens. No message
-//! pumping, elevation, UIAccess changes or UIPI bypass is performed by this crate.
+//! Desktop Windows hosts may open the privacy Settings page. Direct consent requests
+//! are unsupported because the WinRT consent UI requires a UWP CoreWindow.
 #[cfg(any(windows, test))]
 use permissions_core::Status;
 use permissions_core::{
     Descriptor, OperationError, Options, PermissionResult, Platform, SettingsAdmission,
     SettingsResult, admit_settings, metadata,
 };
-
-#[derive(Debug)]
-pub enum RequestStart {
-    Complete(PermissionResult),
-    Pending(u64),
-}
 
 fn failed(error: OperationError) -> PermissionResult {
     PermissionResult::Failed { error }
@@ -83,41 +76,15 @@ pub fn status(permission: &Descriptor, options: &Options) -> PermissionResult {
     }
 }
 
-/// Explicit user request. Call on the application's existing STA UI thread.
-/// A pending token must be polled until complete or cancelled, including on host disposal.
-pub fn request(permission: &Descriptor, options: &Options) -> RequestStart {
-    let name = match preflight(permission, options) {
-        Ok(name) => name,
-        Err(result) => return RequestStart::Complete(result),
-    };
-    #[cfg(windows)]
-    return native::request(name);
-    #[cfg(not(windows))]
-    {
-        let _ = name;
-        RequestStart::Complete(failed(OperationError::ApiUnavailable))
-    }
-}
-
-/// Returns None only while a valid owned request is in progress. Completion consumes it.
-pub fn poll_request(token: u64) -> Result<Option<PermissionResult>, OperationError> {
-    #[cfg(windows)]
-    return native::poll_request(token);
-    #[cfg(not(windows))]
-    {
-        let _ = token;
-        Err(OperationError::ApiUnavailable)
-    }
-}
-
-/// Cancels and releases an abandoned request. This cannot undo an OS prompt already shown.
-pub fn cancel_request(token: u64) -> Result<(), OperationError> {
-    #[cfg(windows)]
-    return native::cancel_request(token);
-    #[cfg(not(windows))]
-    {
-        let _ = token;
-        Err(OperationError::ApiUnavailable)
+/// Reports that this desktop adapter cannot request consent, without invoking the OS.
+pub fn request(permission: &Descriptor, options: &Options) -> PermissionResult {
+    match metadata(permission, Platform::Windows, Some(options)) {
+        Ok(value) => {
+            let mut capability = value.capability;
+            capability.supports_request = false;
+            PermissionResult::Unsupported { capability }
+        }
+        Err(_) => failed(OperationError::InvalidOptions),
     }
 }
 
@@ -154,9 +121,6 @@ pub fn open_settings(permission: &Descriptor, options: &Options) -> SettingsResu
 
 #[cfg(windows)]
 mod native;
-#[cfg(any(windows, test))]
-mod requests;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_desktop_privileges_never_call_an_os_request() {
+    fn unsupported_desktop_privileges_do_not_report_status() {
         for id in [
             "accessibility",
             "input_monitoring",
@@ -185,10 +149,6 @@ mod tests {
                 status(&permission, &Options::None),
                 PermissionResult::Unsupported { .. }
             ));
-            assert!(matches!(
-                request(&permission, &Options::None),
-                RequestStart::Complete(PermissionResult::Unsupported { .. })
-            ));
         }
         let automation = Descriptor {
             id: "automation".into(),
@@ -199,6 +159,24 @@ mod tests {
             status(&automation, &Options::None),
             PermissionResult::Unsupported { .. }
         ));
+    }
+
+    #[test]
+    fn desktop_requests_never_prompt_and_preserve_settings() {
+        for (id, page) in [
+            ("camera", "ms-settings:privacy-webcam"),
+            ("microphone", "ms-settings:privacy-microphone"),
+            ("location", "ms-settings:privacy-location"),
+        ] {
+            let permission = Descriptor::built_in(id).unwrap();
+            let PermissionResult::Unsupported { capability } = request(&permission, &Options::None)
+            else {
+                panic!("Windows desktop must report that direct requests are unsupported");
+            };
+            assert!(!capability.supports_request);
+            assert!(capability.supports_status_check);
+            assert_eq!(capability.system_settings_url.as_deref(), Some(page));
+        }
     }
 
     #[test]
@@ -217,12 +195,10 @@ mod tests {
                 error: OperationError::InvalidOptions
             }
         );
-        assert!(matches!(
+        assert_eq!(
             request(&permission, &options),
-            RequestStart::Complete(PermissionResult::Failed {
-                error: OperationError::InvalidOptions
-            })
-        ));
+            failed(OperationError::InvalidOptions)
+        );
     }
 
     #[test]

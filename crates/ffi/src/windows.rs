@@ -1,7 +1,7 @@
 //! Explicit Windows calls execute on the calling thread, outside the Store mutex.
+use permissions_core::{Descriptor, Error, Options};
 #[cfg(not(windows))]
-use permissions_core::SettingsResult;
-use permissions_core::{Descriptor, Error, OperationError, Options, PermissionResult};
+use permissions_core::{OperationError, PermissionResult, SettingsResult};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -14,14 +14,10 @@ pub(super) enum NativeCommand {
         options: Options,
     },
     #[serde(rename = "windowsRequest")]
-    Start {
+    Request {
         permission: Descriptor,
         options: Options,
     },
-    #[serde(rename = "windowsPollRequest")]
-    Poll { token: u64 },
-    #[serde(rename = "windowsCancelRequest")]
-    Cancel { token: u64 },
     #[serde(rename = "windowsOpenSettings")]
     OpenSettings {
         permission: Descriptor,
@@ -35,14 +31,7 @@ fn validate(permission: Descriptor, options: &Options) -> Result<Descriptor, Err
     Ok(permission)
 }
 
-fn token_valid(token: u64) -> Result<(), Error> {
-    if token == 0 {
-        Err(Error::InvalidToken)
-    } else {
-        Ok(())
-    }
-}
-
+#[cfg(not(windows))]
 fn failed(error: OperationError) -> PermissionResult {
     PermissionResult::Failed { error }
 }
@@ -65,50 +54,19 @@ impl NativeCommand {
                     json!(failed(OperationError::ApiUnavailable))
                 }
             }
-            Self::Start {
+            Self::Request {
                 permission,
                 options,
             } => {
                 let permission = validate(permission, &options)?;
                 #[cfg(windows)]
                 {
-                    use system_permissions_windows::RequestStart;
-                    match system_permissions_windows::request(&permission, &options) {
-                        RequestStart::Complete(result) => json!({"result":result}),
-                        RequestStart::Pending(token) => json!({"token":token}),
-                    }
+                    json!({"result": system_permissions_windows::request(&permission, &options)})
                 }
                 #[cfg(not(windows))]
                 {
                     let _ = permission;
                     json!({"result":failed(OperationError::ApiUnavailable)})
-                }
-            }
-            Self::Poll { token } => {
-                token_valid(token)?;
-                #[cfg(windows)]
-                {
-                    match system_permissions_windows::poll_request(token) {
-                        Ok(Some(result)) => json!({"result":result}),
-                        Ok(None) => json!({}),
-                        Err(error) => json!({"result": failed(error)}),
-                    }
-                }
-                #[cfg(not(windows))]
-                {
-                    json!({"result":failed(OperationError::ApiUnavailable)})
-                }
-            }
-            Self::Cancel { token } => {
-                token_valid(token)?;
-                #[cfg(windows)]
-                {
-                    system_permissions_windows::cancel_request(token).map_err(Error::from)?;
-                    json!({})
-                }
-                #[cfg(not(windows))]
-                {
-                    return Err(Error::ApiUnavailable);
                 }
             }
             Self::OpenSettings {

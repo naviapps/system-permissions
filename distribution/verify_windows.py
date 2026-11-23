@@ -25,12 +25,54 @@ from distribution.verify_bindings import pack_and_consume
 
 ROOT = Path(__file__).resolve().parents[1]
 RECEIPT = "system-permissions-windows.json"
+PACKAGED_FIXTURE = "fixtures/acceptance/windows/verify-package.ps1"
+
+
+def check_packaged_desktop(fixture, library, host, env):
+    if env.get("GITHUB_ACTIONS") != "true" or env.get("RUNNER_ENVIRONMENT") != "github-hosted":
+        raise ValueError("The MSIX fixture requires a disposable GitHub-hosted Windows runner")
+    sdk = Path(env["WINDOWSSDKDIR"]) / "bin" / env["WINDOWSSDKVERSION"].rstrip("\\/") / host
+    powershell = Path(env["SYSTEMROOT"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    with tempfile.TemporaryDirectory(dir=env["RUNNER_TEMP"], prefix="permissions-msix-") as work:
+        subprocess.run(
+            [
+                str(powershell),
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(ROOT / PACKAGED_FIXTURE),
+                "-Work",
+                work,
+                "-SdkBin",
+                str(sdk),
+                "-Fixture",
+                str(fixture),
+                "-Library",
+                str(library),
+            ],
+            cwd=work,
+            env=env,
+            check=True,
+            timeout=180,
+        )
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args(argv)
-    tool_inputs = support_inputs(ROOT)
+    parser.add_argument("--packaged-desktop", action="store_true", help="Check an installed MSIX")
+    args = parser.parse_args(argv)
+
+    def distribution_inputs():
+        inputs = support_inputs(ROOT)
+        if args.packaged_desktop:
+            inputs[PACKAGED_FIXTURE] = hashlib.sha256(
+                (ROOT / PACKAGED_FIXTURE).read_bytes()
+            ).hexdigest()
+        return inputs
+
+    tool_inputs = distribution_inputs()
 
     windows = load("windows")
     host = windows.host_architecture()
@@ -151,6 +193,7 @@ def main(argv=None):
             compiler=[tools / "cl.exe"],
             include_dirs=[ROOT / "crates/ffi/include"],
             libraries=[import_library],
+            flags=("/MT",),
             style="msvc",
             cwd=ROOT,
             env=env,
@@ -167,9 +210,14 @@ def main(argv=None):
         )
         packages = pack_and_consume(dotnet, library, RID, env, candidate)
         verify_packages(candidate / "packages", packages)
+        packaged_check = (
+            "installed x64 MSIX identity, status, direct request and Settings admission"
+        )
+        if args.packaged_desktop:
+            check_packaged_desktop(fixture, library, host, env)
         if hashlib.sha256(library.read_bytes()).hexdigest() != native_hash:
             raise ValueError("The staged Windows DLL changed during acceptance")
-        if support_inputs(ROOT) != tool_inputs:
+        if distribution_inputs() != tool_inputs:
             raise ValueError("SDK tool inputs changed during Windows acceptance")
         if graph.provenance() != dependencies:
             raise ValueError("Native dependencies changed during Windows acceptance")
@@ -192,11 +240,12 @@ def main(argv=None):
                 "Windows source compilation",
                 "C ownership and buffer bounds",
                 ".NET cancellation and stale-write contracts",
-                "unpackaged nonprompting AppCapability status",
+                "unpackaged nonprompting status and unsupported direct request",
                 "clean local NuGet consumer",
+                *([packaged_check] if args.packaged_desktop else []),
             ],
             "notRun": [
-                "packaged AppCapability fixture",
+                *([] if args.packaged_desktop else [packaged_check]),
                 "OS permission prompts",
                 "Settings launch",
                 "product integration",

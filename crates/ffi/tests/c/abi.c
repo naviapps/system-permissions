@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#include <appmodel.h>
+#include <wchar.h>
+#endif
 
 static void expect(SystemPermissionsResult *result, uint32_t status, const char *text) {
     assert(result != NULL);
@@ -34,7 +39,7 @@ static char *copy_result(SystemPermissionsResult *result, uint32_t status) {
     return copy;
 }
 
-int main(void) {
+static void test_contract(void) {
     assert(system_permissions_result_status(NULL) == 1);
     assert(system_permissions_result_data(NULL) == NULL);
     assert(system_permissions_result_len(NULL) == 0);
@@ -115,5 +120,54 @@ int main(void) {
     expect(store_call(NULL, "{\"op\":\"snapshot\"}"), 1, "{\"error\":\"invalidBuffer\"}");
     expect(call("{\"op\":\"allowsAccess\",\"status\":\"unknown\"}"), 0, "false");
     puts("C ownership, buffer boundaries and independent stores passed.");
+}
+
+#ifdef _WIN32
+static void test_packaged_desktop(const wchar_t *expected) {
+    wchar_t full_name[PACKAGE_FULL_NAME_MAX_LENGTH + 1];
+    UINT32 length = PACKAGE_FULL_NAME_MAX_LENGTH + 1;
+    assert(GetCurrentPackageFullName(&length, full_name) == ERROR_SUCCESS);
+    assert(wcscmp(expected, full_name) == 0);
+
+    expect(call("{\"op\":\"windowsRequest\",\"permission\":{\"id\":\"camera\"},\"options\":{"
+                "\"kind\":\"none\"}}"),
+           0,
+           "{\"result\":{\"capability\":{\"requiresRelaunch\":false,\"supportsRequest\":false,"
+           "\"supportsStatusCheck\":true,\"systemSettingsUrl\":\"ms-settings:privacy-webcam\"},"
+           "\"kind\":\"unsupported\"}}");
+    expect(call("{\"op\":\"admitSettings\",\"platform\":\"windows\",\"permission\":{\"id\":"
+                "\"camera\"}}"),
+           0,
+           "{\"capability\":{\"requiresRelaunch\":false,\"supportsRequest\":false,"
+           "\"supportsStatusCheck\":true,\"systemSettingsUrl\":\"ms-settings:privacy-webcam\"}}");
+
+    SystemPermissionsResult *status = call("{\"op\":\"windowsStatus\",\"permission\":{\"id\":"
+                                           "\"camera\"},\"options\":{\"kind\":\"none\"}}");
+    char *result = copy_result(status, 0);
+    assert(strcmp(result, "{\"error\":\"apiUnavailable\",\"kind\":\"failed\"}") == 0 ||
+           strcmp(result, "{\"kind\":\"supported\",\"value\":\"granted\"}") == 0 ||
+           strcmp(result, "{\"kind\":\"supported\",\"value\":\"denied\"}") == 0 ||
+           strcmp(result, "{\"kind\":\"supported\",\"value\":\"restricted\"}") == 0 ||
+           strcmp(result, "{\"kind\":\"supported\",\"value\":\"notDetermined\"}") == 0 ||
+           strcmp(result, "{\"kind\":\"supported\",\"value\":\"unknown\"}") == 0);
+    printf("MSIX desktop identity, unsupported direct consent, and Settings admission passed. "
+           "Camera: %s\n",
+           result);
+    free(result);
+    system_permissions_result_free(status);
+}
+
+int wmain(int argc, wchar_t **argv) {
+    assert(argc == 1 || argc == 2);
+    test_contract();
+    if (argc == 2) {
+        test_packaged_desktop(argv[1]);
+    }
     return 0;
 }
+#else
+int main(void) {
+    test_contract();
+    return 0;
+}
+#endif

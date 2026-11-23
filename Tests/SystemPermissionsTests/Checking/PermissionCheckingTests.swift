@@ -47,10 +47,9 @@ final class PermissionCheckingTests: XCTestCase {
           XCTAssertEqual(options, .none)
           return .supported(.restricted)
         },
-        requestAccess: { type, options in
-          XCTAssertEqual(type, .location)
-          XCTAssertEqual(options, .none)
-          return .supported(.granted)
+        requestAccess: { _, _ in
+          XCTFail("Windows desktop admission must reject a native direct consent request")
+          return .failed(.apiUnavailable)
         },
         openURL: { url in
           XCTAssertEqual(url.scheme, "ms-settings")
@@ -61,7 +60,8 @@ final class PermissionCheckingTests: XCTestCase {
     let status = await checker.status(for: .location)
     let request = await checker.requestAccess(for: .location)
     XCTAssertEqual(status, .supported(.restricted))
-    XCTAssertEqual(request, .supported(.granted))
+    let locationCapability = try PermissionType.location.metadata(on: .windows).capability
+    XCTAssertEqual(request, .unsupported(locationCapability))
     XCTAssertEqual(checker.openSystemSettings(for: .location), .supported(true))
 
     let capability = try PermissionType.accessibility.metadata(on: .windows).capability

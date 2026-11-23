@@ -335,9 +335,13 @@ fn windows_does_not_invent_macos_authorization_or_usage_descriptions() {
             expected_url.is_some(),
             "{id}"
         );
+        assert!(!value.capability.supports_request, "{id}");
+        let expected = json!({"result":{"kind":"unsupported","capability":value.capability}});
         assert_eq!(
-            value.capability.supports_request,
-            expected_url.is_some(),
+            query(
+                json!({"op":"admitAccess","platform":"windows","request":true,"permission":permission})
+            ),
+            Ok(expected),
             "{id}"
         );
     }

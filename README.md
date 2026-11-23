@@ -48,9 +48,10 @@ not require a target; construct `.automation(targetApplication:)` explicitly.
 On macOS, a passive Automation check returns `.supported(.unknown)` when the
 target is not running. It does not launch the target or prompt. An explicit
 request for a stopped target still returns `.failed(.apiUnavailable)`.
-Windows does not have equivalents for every macOS privacy domain. Unsupported
-operations remain explicit. Input injection and protected/elevated targets have
-separate OS restrictions and are not made available by this package.
+Windows desktop applications can check camera, microphone and location privacy
+status when the native API is available, and can open the corresponding Settings
+pages. A direct consent request returns an unsupported result with the available
+Settings destination. See the [.NET Windows contract](bindings/dotnet/README.md#windows-privacy).
 
 ## Notification option wire contract
 

@@ -1,6 +1,4 @@
-use super::requests::{Pending, Requests};
 use super::*;
-use std::sync::OnceLock;
 use windows::Security::Authorization::AppCapabilityAccess::AppCapability;
 use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, RPC_E_CHANGED_MODE};
 use windows::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
@@ -69,82 +67,6 @@ pub(super) fn status(name: &str) -> PermissionResult {
         })
     })();
     result.unwrap_or_else(failed)
-}
-
-static REQUESTS: OnceLock<Requests> = OnceLock::new();
-fn requests() -> &'static Requests {
-    REQUESTS.get_or_init(Requests::default)
-}
-
-pub(super) fn request(name: &str) -> RequestStart {
-    let result = (|| {
-        let mut apartment = APTTYPE::default();
-        let mut qualifier = APTTYPEQUALIFIER::default();
-        unsafe { CoGetApartmentType(&mut apartment, &mut qualifier) }
-            .map_err(|_| OperationError::ApiUnavailable)?;
-        if apartment != APTTYPE_STA && apartment != APTTYPE_MAINSTA {
-            return Err(OperationError::ApiUnavailable);
-        }
-        let _apartment = Apartment::enter()?;
-        let capability = capability(name)?;
-        let before = capability
-            .CheckAccess()
-            .map_err(|_| OperationError::ApiUnavailable)?;
-        // An undeclared/restricted capability cannot be repaired by a permission prompt.
-        if matches!(before.0, 0 | 1) {
-            return Ok(RequestStart::Complete(PermissionResult::Supported {
-                value: access_status(before.0),
-            }));
-        }
-        // Reserve storage before starting any UI. At most 128 outstanding operations.
-        let reservation = requests().reserve()?;
-        let operation = capability
-            .RequestAccessAsync()
-            .map_err(|_| OperationError::ApiUnavailable)?;
-        let cancellation = operation.clone();
-        let pending = Pending::new(
-            move || {
-                if operation
-                    .Status()
-                    .map_err(|_| OperationError::ApiUnavailable)?
-                    .0
-                    == 0
-                {
-                    return Ok(None);
-                }
-                let value = operation
-                    .GetResults()
-                    .map_err(|_| OperationError::ApiUnavailable)?;
-                Ok(Some(PermissionResult::Supported {
-                    value: access_status(value.0),
-                }))
-            },
-            move || {
-                let _ = cancellation.Cancel();
-            },
-        );
-        let token = reservation.commit(pending)?;
-        Ok(RequestStart::Pending(token))
-    })();
-    result.unwrap_or_else(|error| RequestStart::Complete(failed(error)))
-}
-
-pub(super) fn poll_request(token: u64) -> Result<Option<PermissionResult>, OperationError> {
-    match Apartment::enter() {
-        Ok(_apartment) => requests().poll(token),
-        Err(error) => {
-            // A terminal poll failure must release ownership as well as report failure.
-            let _ = requests().cancel(token);
-            Err(error)
-        }
-    }
-}
-
-pub(super) fn cancel_request(token: u64) -> Result<(), OperationError> {
-    // Always remove abandoned ownership, even if this thread cannot initialize WinRT.
-    // Cancel is best effort; it cannot retract OS consent UI that already appeared.
-    let _apartment = Apartment::enter().ok();
-    requests().cancel(token)
 }
 
 pub(super) fn open_settings(url: &str) -> SettingsResult {

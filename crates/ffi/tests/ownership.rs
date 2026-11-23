@@ -175,8 +175,8 @@ fn extended_dispatch_preserves_strict_core_and_native_payload_validation() {
         r#"{"op":"windowsStatus","permission":{"id":"camera","id":"microphone"},"options":{"kind":"none"}}"#,
         r#"{"op":"windowsStatus","permission":["camera"],"options":{"kind":"none"}}"#,
         r#"{"op":"windowsRequest","permission":{"id":"camera"},"options":{"kind":"none"},"extra":1}"#,
-        r#"{"op":"windowsPollRequest","token":1,"token":2}"#,
-        r#"{"op":"windowsCancelRequest","token":1,"permission":{"id":"camera"}}"#,
+        r#"{"op":"windowsPollRequest","token":1}"#,
+        r#"{"op":"windowsCancelRequest","token":1}"#,
     ] {
         let (status, _) = unsafe { copied(system_permissions_call(input.as_ptr(), input.len())) };
         assert_eq!(status, 1, "Accepted malformed extended command: {input}");
@@ -317,23 +317,34 @@ fn explicit_windows_operations_never_infer_native_access_on_other_platforms() {
             (0, json!({"kind":"failed","error":"apiUnavailable"}))
         );
     }
-    for input in [
-        json!({"op":"windowsRequest","permission":{"id":"camera"},"options":{"kind":"none"}}),
-        json!({"op":"windowsPollRequest","token":1}),
-    ] {
-        let input = serde_json::to_vec(&input).unwrap();
-        assert_eq!(
-            unsafe { copied(system_permissions_call(input.as_ptr(), input.len())) },
-            (
-                0,
-                json!({"result":{"kind":"failed","error":"apiUnavailable"}})
-            )
-        );
-    }
-    let input = br#"{"op":"windowsCancelRequest","token":1}"#;
+    let input =
+        br#"{"op":"windowsRequest","permission":{"id":"camera"},"options":{"kind":"none"}}"#;
     assert_eq!(
         unsafe { copied(system_permissions_call(input.as_ptr(), input.len())) },
-        (1, json!({"error":"apiUnavailable"}))
+        (
+            0,
+            json!({"result":{"kind":"failed","error":"apiUnavailable"}})
+        )
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_desktop_request_reports_unsupported_even_without_a_ui_thread() {
+    let input =
+        br#"{"op":"windowsRequest","permission":{"id":"camera"},"options":{"kind":"none"}}"#;
+    let expected = json!({"result":{
+        "kind":"unsupported",
+        "capability":{
+            "supportsStatusCheck":true,
+            "supportsRequest":false,
+            "systemSettingsUrl":"ms-settings:privacy-webcam",
+            "requiresRelaunch":false
+        }
+    }});
+    assert_eq!(
+        unsafe { copied(system_permissions_call(input.as_ptr(), input.len())) },
+        (0, expected)
     );
 }
 

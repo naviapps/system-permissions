@@ -53,9 +53,11 @@ same staged DLL. The receipt records its SHA-256, target, host, execution mode
 and SHA-256 hashes of the pinned distribution tooling.
 When `VM_RUNNER_ARTIFACTS_DIR` is set, it writes the verified pair and receipt directly
 into that directory's `win-x64` subdirectory.
-The public Windows x64 workflow runs Rust and managed binding tests. The
-SDK Tooling distribution workflow runs the full x64 package checks. The local
-command also supports x64 emulation on Windows ARM64.
+The public Windows x64 workflow runs Rust and managed binding tests. SDK Tooling's
+hosted distribution check also installs an owned, temporary x64 MSIX to check
+package identity, nonprompting status, unsupported direct consent and Settings
+admission. The fixture removes its package and signing certificate after the test.
+The local command also supports x64 emulation on Windows ARM64.
 
 In a .NET 10 host project, point `LOCAL_PACKAGE_DIRECTORY` at that package folder
 or an approved private feed containing both packages:
@@ -92,7 +94,7 @@ using var store = new PermissionStore();
 store.Track([PermissionDescriptor.Camera]);
 await store.RefreshAsync(checker, PermissionDescriptor.Camera);
 // Only call from an explicit user action:
-await store.RequestAsync(checker, PermissionDescriptor.Camera);
+await checker.OpenSettingsAsync(PermissionDescriptor.Camera);
 ```
 
 `RefreshAsync` and `RefreshAllAsync` take `IPermissionStatusChecking` so read-only
@@ -162,12 +164,8 @@ enumeration reports cancellation. Rust validates each result and compares it wit
 the preceding poll for the same permission. A provider exception or a malformed result ends the stream
 with the corresponding error after any buffered valid events.
 
-`StatusAsync` never prompts. The request starts on the host UI thread and returns
-to its message loop. Completion polling runs asynchronously. The bundled
-dispatcher cancels queued work even while the host is waiting to process messages.
-If a request has started, its result reaches the Windows environment for native
-token cleanup. Cancellation cannot retract OS UI already shown. For a completed check,
-cancellation is sampled once at synchronous apply entry. A captured cancellation
+`StatusAsync` never prompts. For a completed check, cancellation is sampled once
+at synchronous apply entry. A captured cancellation
 discards the update after Rust validation; validation failures retain their typed
 error. Cancellation arriving after that sample returns the resulting stored status.
 The store uses Rust admission/apply/finish tokens. A refresh for a scope with a
@@ -187,14 +185,22 @@ pending read/write work. Rust validates options before reserving a token. Option
 for a different permission return `Failed(InvalidOptions)` without invoking the
 provider, changing stored results or superseding earlier operations.
 
-Windows 10 version 1903 or newer provides AppCapability. This adapter currently
-checks/requests `webcam`, `microphone` and `location` for a process with package
-identity. Packaged callers must declare the relevant capability in their manifest.
+### Windows privacy
+
+Windows 10 version 1903 or newer provides AppCapability. This adapter checks
+`webcam`, `microphone` and `location` when the current process has package identity
+and the native API is available. Packaged callers declare the relevant capability.
 `NotDeclaredByApp` and system restrictions map to `restricted`; user denial maps
 to `denied`. Unpackaged processes and unavailable APIs return `apiUnavailable`.
 This conservative limitation does not assert that unpackaged applications lack
-device access through other Windows APIs. No capture/device is opened by a status
-check. Packaged/full-trust differences require native fixture validation.
+device access through other Windows APIs. A status check never opens a device.
+
+For Windows desktop applications, `RequestAsync` returns `Unsupported` for direct
+consent and preserves the corresponding Settings destination. The native consent UI
+requires a UWP CoreWindow. Call `OpenSettingsAsync` explicitly with the user's intent
+to open that destination. An injected host environment can still implement its own
+validated custom operations.
+[Windows desktop API compatibility](https://learn.microsoft.com/windows/apps/desktop/modernize/winrt-api-desktop-app-support).
 
 Accessibility, input monitoring, general screen recording, Apple Events automation
 and the other macOS-only built-ins remain unsupported on Windows. No synthetic

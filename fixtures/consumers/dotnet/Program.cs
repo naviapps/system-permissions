@@ -15,6 +15,9 @@ store.Apply([new PermissionUpdate(camera, token, PermissionOperationResult.Suppo
 if (store.Get(camera)?.Value != PermissionStatus.Denied)
     throw new Exception("The packaged native store did not retain its result.");
 var checker = new PermissionChecker(new WindowsPermissionEnvironment(new NeverDispatch()));
+var request = await checker.RequestAsync(camera);
+if (request.Kind != "unsupported" || request.Capability is not { SupportsRequest: false, SystemSettingsURL: "ms-settings:privacy-webcam" })
+    throw new Exception("The packaged Windows checker did not report unsupported consent and retain Settings guidance.");
 var settings = await checker.OpenSettingsAsync(PermissionDescriptor.Accessibility);
 if (settings.Kind != "unsupported")
     throw new Exception("The packaged Windows checker did not apply Settings admission.");

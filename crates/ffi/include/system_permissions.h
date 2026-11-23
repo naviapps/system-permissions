@@ -1,6 +1,6 @@
 #ifndef SYSTEM_PERMISSIONS_H
 #define SYSTEM_PERMISSIONS_H
-#define SYSTEM_PERMISSIONS_ABI_VERSION 1U
+#define SYSTEM_PERMISSIONS_ABI_VERSION 2U
 #include <stddef.h>
 #include <stdint.h>
 #ifdef __cplusplus
@@ -89,13 +89,10 @@ SystemPermissionsResult *system_permissions_store_call(SystemPermissionsStore *s
 
    Explicit Windows operations (unavailable on other platforms):
    windowsStatus {permission,options} -> status result;
-   windowsRequest {permission,options} -> {result:status result} or {token:uint64};
-   windowsPollRequest {token} -> {result:status result} or {} while pending;
-   windowsCancelRequest {token} -> {};
+   windowsRequest {permission,options} -> {result:status result};
    windowsOpenSettings {permission,options} -> boolean Settings result.
-   Request must start on the host's existing STA UI thread. Poll away from that
-   thread; cancel every abandoned token. Native tokens are independent of Store
-   work tokens. Cancellation cannot undo a system prompt or grant already made. */
+   Desktop Windows reports direct requests as unsupported without calling the OS.
+   A caller can explicitly open the Settings destination for a supported capability. */
 #ifdef __cplusplus
 }
 #endif

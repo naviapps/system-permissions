@@ -8,5 +8,5 @@ commands = [
 [windows]
 commands = [
   ["sdk-tooling", "python", "-m", "unittest", "discover", "-s", "distribution/tests"],
-  ["sdk-tooling", "windows", "distribution/verify_windows.py"],
+  ["sdk-tooling", "windows", "distribution/verify_windows.py", "--packaged-desktop"],
 ]

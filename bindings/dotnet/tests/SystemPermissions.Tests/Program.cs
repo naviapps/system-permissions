@@ -53,6 +53,8 @@ Check(!PermissionOperationResult.Failed(PermissionError.ApiUnavailable).AllowsAc
 var metadata = PermissionContract.Metadata(camera, PermissionPlatform.Windows);
 Check(metadata.Capability.SystemSettingsURL?.StartsWith("ms-settings:", StringComparison.Ordinal) == true,
     "Windows metadata must decode its Settings URL.");
+Check(metadata.Capability.SupportsStatusCheck && !metadata.Capability.SupportsRequest,
+    "Windows desktop describes its status observation and unsupported direct request.");
 Check(PermissionContract.Metadata(PermissionDescriptor.Photos, PermissionPlatform.MacOS,
     PermissionOptions.Photos(PhotoAccessLevel.AddOnly)).UsageDescriptionKeys.Single() == "NSPhotoLibraryAddUsageDescription", "Option-dependent metadata.");
 Check(PermissionContract.Validate(PermissionDescriptor.Automation("com.apple.TextEdit")).TargetApplication == "com.apple.TextEdit", "Target spelling must be retained.");
@@ -589,11 +591,12 @@ using (var lateCancellation = new CancellationTokenSource())
 }
 if (OperatingSystem.IsWindows())
 {
-    // This executable is an owned, unpackaged, nonprompting fixture. Never request or open Settings.
     var native = new WindowsPermissionEnvironment(new NeverDispatch());
     var result = await native.StatusAsync(camera, PermissionOptions.None, default);
     Check(result == PermissionOperationResult.Failed(PermissionError.ApiUnavailable), "Unpackaged access must not be inferred granted.");
-    Console.WriteLine("Windows unpackaged nonprompting status fixture passed. Packaged/prompt/settings coverage not run.");
+    var request = await native.RequestAsync(camera, PermissionOptions.None, default);
+    Check(request == PermissionOperationResult.Unsupported(metadata.Capability), "Direct consent must be unsupported without UI dispatch.");
+    Console.WriteLine("Windows unpackaged nonprompting status and unsupported direct request passed.");
 }
 Console.WriteLine(".NET Rust boundary, metadata, uint64 options, ownership, cancellation and stale-write contracts passed.");
 
