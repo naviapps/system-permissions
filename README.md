@@ -80,7 +80,7 @@ aliases or automatic reinterpretations. `CarPlay`, `Announcement` and
 
 ## Swift
 
-Use Swift 6.4 and macOS 26 or later. Add the repository at a completed full
+Use Swift 6.3 or later on macOS 26 or later. Add the repository at a completed full
 commit revision and select `SystemPermissions`, `SystemPermissionsMacOS`, or both.
 `Package.swift` ships the source-bound universal `CSystemPermissions.xcframework`;
 consumers do not need Rust.
@@ -90,7 +90,7 @@ Replace `FULL_COMMIT_REVISION` with an accepted full 40-character commit revisio
 it is a placeholder, not a published version or a usable pin.
 
 ```swift
-// swift-tools-version: 6.4
+// swift-tools-version: 6.3
 import PackageDescription
 
 let package = Package(
@@ -332,8 +332,9 @@ mise exec -- python3 -B tools/install-consumers.py \
 ```
 
 Default Swift tests use injected providers for requests and Settings opening. Live
-smoke tests only query nonprompting status. GitHub Actions uses Xcode 27 and
-Windows x64 for source, package and consumer checks. Requests, system UI and Windows ARM64
+smoke tests only query nonprompting status. GitHub Actions runs strict Swift
+tests on macOS 26 with Xcode 26.6. The Xcode 27 and Windows x64 jobs also run
+source, package and consumer checks. Requests, system UI and Windows ARM64
 emulation are tested separately in owned isolated fixtures.
 
 This succeeds the local PermissionsKit integration. The old GitHub repository and
