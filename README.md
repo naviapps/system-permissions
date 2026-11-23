@@ -332,10 +332,11 @@ mise exec -- python3 -B tools/install-consumers.py \
 ```
 
 Default Swift tests use injected providers for requests and Settings opening. Live
-smoke tests only query nonprompting status. GitHub Actions runs strict Swift
-tests on macOS 26 with Xcode 26.6. The Xcode 27 and Windows x64 jobs also run
-source, package and consumer checks. Requests, system UI and Windows ARM64
-emulation are tested separately in owned isolated fixtures.
+smoke tests only query nonprompting status. GitHub Actions runs the same strict
+Swift tests and standalone Swift consumer on macOS 26 and 27. The Xcode 27 and
+Windows x64 distribution jobs run the source, package and native consumer checks.
+Requests, system UI and Windows ARM64 emulation are tested separately in owned
+isolated fixtures.
 
 This succeeds the local PermissionsKit integration. The old GitHub repository and
 its published source/history are unchanged. The host retains product-specific

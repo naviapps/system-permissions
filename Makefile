@@ -1,7 +1,8 @@
 .DEFAULT_GOAL := check
 SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
-.PHONY: check lint native native-verify test test-consumer test-installed-consumers test-rust test-bindings test-windows-tool docs
-check: lint test-rust native-verify test test-consumer test-bindings test-windows-tool
+.PHONY: check check-distribution lint native native-verify test test-consumer test-installed-consumers test-rust test-bindings test-windows-tool docs
+check: check-distribution test test-consumer
+check-distribution: lint test-rust native-verify test-bindings test-windows-tool
 lint:
 	mise exec -- python3 -B tools/quality.py check --dotnet
 native:
