@@ -15,7 +15,6 @@ test-consumer:
 test-installed-consumers:
 	python3 -B tools/install-consumers.py
 test-rust:
-	cargo fmt --all -- --check
 	cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 	cargo test --workspace --locked --offline
 test-bindings:

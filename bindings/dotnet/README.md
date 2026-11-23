@@ -55,9 +55,8 @@ same staged DLL. The receipt records its SHA-256, target, host and execution mod
 When `NAVI_CI_ARTIFACTS` is set, the x64 receipt and packages go in its
 `win-x64` subdirectory. Each x64 output publishes the package pair and receipt
 together after verification.
-The GitHub-hosted Windows workflow runs tool and Rust tests on x64. The full
-workflow adds packaged SDK acceptance once the pinned tooling is accessible
-anonymously. The local command also supports x64 emulation on Windows ARM64.
+The GitHub-hosted Windows workflow runs tool, Rust and packaged SDK tests on x64.
+The local command also supports x64 emulation on Windows ARM64.
 
 In a .NET 10 host project, point `LOCAL_PACKAGE_DIRECTORY` at that package folder
 or an approved private feed containing both packages:

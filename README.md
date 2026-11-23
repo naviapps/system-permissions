@@ -80,10 +80,10 @@ aliases or automatic reinterpretations. `CarPlay`, `Announcement` and
 
 ## Swift
 
-Use Swift 6.4 and macOS 26 or later. Add the private repository at a completed full
+Use Swift 6.4 and macOS 26 or later. Add the repository at a completed full
 commit revision and select `SystemPermissions`, `SystemPermissionsMacOS`, or both.
 `Package.swift` ships the source-bound universal `CSystemPermissions.xcframework`;
-consumers do not need Rust. Configure authenticated source access outside the package.
+consumers do not need Rust.
 
 A normal host package can select both public products with the following manifest.
 Replace `FULL_COMMIT_REVISION` with an accepted full 40-character commit revision;
@@ -245,7 +245,7 @@ Use one store's tokens only with that same store. Independent checkers and statu
 observers do not participate in a store's admission lifecycle.
 
 For a separate Rust application, replace `<FULL_PUBLISHED_COMMIT_SHA>` with the
-complete private SDK revision:
+complete published SDK revision:
 
 ```toml
 [dependencies]
@@ -310,9 +310,8 @@ explicitly injected; no live permission query, request or Settings operation run
 The pinned shared driver isolates SwiftPM configuration, caches and build output,
 excludes Rust and developer tools, and uses the tracked framework without rebuilding
 it. `--git-config` and `--mirror-config` accept explicit private dependency policy.
-This source/artifact gate runs in the existing macOS workflow on pushes and manual
-dispatches; it does not prove authenticated remote installation, live consent or host
-app integration.
+This source/artifact gate runs in the macOS workflow on pushes to `main`, pull
+requests and manual runs. It uses synthetic effects.
 
 `mise exec -- make test-installed-consumers` runs the independent Rust Git and
 installed C clients on macOS with the pinned toolchain available from the
@@ -320,8 +319,7 @@ temporary consumer directory. Both exercise notification options and rejection
 of mismatched input without permission requests or OS settings access. The Rust
 client resolves a fresh Cargo lock and may fetch public registry crates into an
 empty cache before it builds and runs offline. The gate checks each Git dependency
-against the declared sources, uses a copied framework without rebuilding it, and
-does not test private Git authentication. It runs in the existing macOS workflow.
+against the declared sources and uses a copied framework. It runs in the macOS workflow.
 
 From a shallow checkout, pass a complete local mirror or bundle that contains the
 exact SDK commit. The optional evidence path must be unused and outside the SDK
@@ -335,8 +333,7 @@ mise exec -- python3 -B tools/install-consumers.py \
 
 Default Swift tests use injected providers for requests and Settings opening. Live
 smoke tests only query nonprompting status. GitHub Actions uses Xcode 27 and
-Windows x64 for source tests, with full package and consumer checks when the
-pinned tooling is publicly accessible. Requests, system UI and Windows ARM64
+Windows x64 for source, package and consumer checks. Requests, system UI and Windows ARM64
 emulation are tested separately in owned isolated fixtures.
 
 This succeeds the local PermissionsKit integration. The old GitHub repository and
