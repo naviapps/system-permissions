@@ -2,13 +2,6 @@
 executable = "SystemPermissionsConsumer"
 inputs = ["Package.swift", "Sources", "Tests", "Artifacts", "ThirdParty"]
 
-[docs]
-catalogs = [
-  "Sources/SystemPermissions/SystemPermissions.docc",
-  "Sources/SystemPermissionsMacOS/SystemPermissionsMacOS.docc",
-]
-retain_archives = true
-
 [rust_c]
 git_url = "https://github.com/naviapps/system-permissions.git"
 rust_packages = ["system-permissions"]

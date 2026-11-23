@@ -4,9 +4,7 @@ System permission contracts and native integrations for Rust, Swift, C and
 .NET. Hosts own product requirements, explanations, prompt timing and recovery UI.
 
 Start with [Swift](#swift), [Rust and C](#rust-c-and-net), or the
-[.NET installation and usage guide](https://github.com/naviapps/system-permissions/blob/main/bindings/dotnet/README.md). Swift API guides
-are in the [SystemPermissions catalog](https://github.com/naviapps/system-permissions/blob/main/Sources/SystemPermissions/SystemPermissions.docc/SystemPermissions.md)
-and [macOS catalog](https://github.com/naviapps/system-permissions/blob/main/Sources/SystemPermissionsMacOS/SystemPermissionsMacOS.docc/SystemPermissionsMacOS.md).
+[.NET installation and usage guide](bindings/dotnet/README.md).
 
 ## Layout
 
@@ -161,7 +159,13 @@ acknowledgement. A launch acknowledgement conveys only whether Settings opened.
 passes the shared Rust validation. Predefined constants such as `.camera` are
 listed by `UsageDescriptionKey.allCases`. Keys encode as JSON strings and keep
 their exact spelling. Custom permission metadata removes exact duplicates in
-first-occurrence order.
+first-occurrence order. `PermissionType.metadata(on:options:)` returns the
+platform's capabilities and usage-description requirements. Use
+`systemSettingsURL` to open a capability's Settings destination and
+`systemSettingsURLString` for the exact string used in encoding and equality.
+Use `PermissionType.decodeJSON(_:)` for external UTF-8 JSON to validate the original
+object, including duplicate keys and nested object shapes. Its `Codable`
+conformance supports embedding permission descriptors in host serialization.
 
 The observation streams buffer the newest events up to the number of unique
 permissions. For a current-status view, use `updates` or `throwingUpdates`.
@@ -316,9 +320,8 @@ gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
   -f sdk=system-permissions -f "revision=$(git rev-parse HEAD)"
 ```
 
-`make check-distribution` verifies the tracked framework, builds both Swift API
-catalogs and tests C ownership, managed bindings and clean local NuGet
-consumption. Use `mise exec -- make native` when the framework needs rebuilding.
+`make check-distribution` verifies the tracked framework and tests C ownership,
+managed bindings and clean local NuGet consumption. Use `mise exec -- make native` when the framework needs rebuilding.
 
 `make test-consumer` builds and runs `fixtures/consumers/swift/` against a disposable
 SDK containing only `Package.swift`, `Sources`, `Tests`, `Artifacts` and `ThirdParty`.
@@ -372,12 +375,6 @@ are not migrated or modified by installing this SDK.
 or `mise run format` to format owned source. Compiler and native acceptance remain
 in the existing check targets. Formatting excludes vendored code, native artifacts
 and original notices.
-
-Run `mise exec -- make docs` on macOS to build both Swift API catalogs with symbol
-graphs from this package and treat DocC warnings as errors. The retained archives
-are `build/docs/SystemPermissions.doccarchive` and
-`build/docs/SystemPermissionsMacOS.doccarchive`; this does not request permissions
-or validate host app behavior.
 
 ## License
 

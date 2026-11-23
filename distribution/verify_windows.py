@@ -3,7 +3,6 @@
 
 import argparse
 import hashlib
-import json
 import os
 import subprocess
 import tempfile
@@ -14,74 +13,18 @@ from sdk_tooling import vm_environment as vm
 from sdk_tooling.adapters import load, support_inputs
 from sdk_tooling.dotnet import pinned_sdk_version
 from sdk_tooling.native_plan import ffi_product
-from sdk_tooling.windows_delivery import RID, TARGET
+from sdk_tooling.windows_delivery import (
+    RID,
+    TARGET,
+    locked_fetch_args,
+    publish_package_evidence,
+    verify_packages,
+)
 
 from distribution.verify_bindings import pack_and_consume
 
 ROOT = Path(__file__).resolve().parents[1]
 RECEIPT = "system-permissions-windows.json"
-
-
-def verify_packages(directory, packages, *, receipt_name=None):
-    names = packages.keys() | ({receipt_name} if receipt_name else set())
-    if (
-        directory.is_symlink()
-        or {path.name for path in directory.iterdir()} != names
-        or any(
-            (directory / name).is_symlink()
-            or not (directory / name).is_file()
-            or hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest
-            for name, digest in packages.items()
-        )
-    ):
-        raise ValueError("Windows package output differs from the accepted package pair")
-
-
-def publish_x64(package_source, destination, receipt, artifacts):
-    packages = receipt["packages"]
-    names = packages.keys() | {RECEIPT}
-    if (
-        destination.parent.is_symlink()
-        or destination.parent.is_junction()
-        or destination.is_symlink()
-        or destination.is_junction()
-        or (destination.exists() and not destination.is_dir())
-    ):
-        raise ValueError("Windows x64 evidence requires an ordinary output directory")
-
-    def owned_file(path, names):
-        return path.name in names and path.is_file() and not path.is_symlink()
-
-    if destination.exists():
-        for path in destination.iterdir():
-            if owned_file(path, names):
-                continue
-            if (
-                path.name == "packages"
-                and path.is_dir()
-                and not path.is_symlink()
-                and not path.is_junction()
-                and all(owned_file(file, packages) for file in path.iterdir())
-            ):
-                # Migrate old local output, which also kept a second copy under packages/.
-                continue
-            raise ValueError("Windows x64 evidence contains files outside the SDK package pair")
-
-    def verify(directory):
-        verify_packages(directory, packages, receipt_name=RECEIPT)
-        report = directory / RECEIPT
-        if report.is_symlink() or json.loads(report.read_bytes()) != receipt:
-            raise ValueError("Windows x64 evidence differs from the accepted package pair")
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=destination.parent, prefix="evidence-") as directory:
-        stage = Path(directory) / RID
-        stage.mkdir()
-        for name in packages:
-            artifacts.stage_native(package_source / name, stage / name)
-        artifacts.write_json(stage / RECEIPT, receipt)
-        verify(stage)
-        artifacts.publish(stage, destination, lambda: verify(destination))
 
 
 def main(argv=None):
@@ -134,7 +77,7 @@ def main(argv=None):
     except ValueError as error:
         raise SystemExit(str(error)) from None
 
-    run("cargo", "fetch", "--locked", "--target", TARGET)
+    run(*locked_fetch_args(notice_targets=notice_targets))
     cargo.runtime_notices(ROOT, env)
     cargo.CargoDependencies(ROOT, ("system-permissions-ffi",), notice_targets, env).retain_notices()
     run("cargo", "fmt", "--all", "--", "--check")
@@ -259,7 +202,14 @@ def main(argv=None):
                 "product integration",
             ],
         }
-        publish_x64(candidate / "packages", output, receipt, artifacts)
+        publish_package_evidence(
+            candidate / "packages",
+            receipt,
+            receipt_name=RECEIPT,
+            destination=output,
+            legacy_packages_directory=True,
+            tooling=artifacts,
+        )
     print(f"Windows {RID} nonprompting acceptance passed on {host} ({receipt['executionMode']}).")
 
 

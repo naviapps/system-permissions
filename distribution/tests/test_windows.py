@@ -82,25 +82,6 @@ class BuildRouteTests(unittest.TestCase):
     def test_x64_refuses_to_publish_when_the_staged_dll_changes(self):
         self.check_route("arm64", change_staged=True)
 
-    def test_x64_preserves_unrelated_existing_files(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            output = root / "win-x64"
-            output.mkdir()
-            unrelated = output / "notes.txt"
-            unrelated.write_text("Keep this file", encoding="utf-8")
-            artifacts = Mock()
-            with self.assertRaisesRegex(ValueError, "outside the SDK package pair"):
-                windows.publish_x64(
-                    root,
-                    output,
-                    {"packages": {"fixture.nupkg": "digest"}},
-                    artifacts,
-                )
-            artifacts.stage_native.assert_not_called()
-            artifacts.publish.assert_not_called()
-            self.assertEqual(unrelated.read_text(encoding="utf-8"), "Keep this file")
-
     def check_route(
         self,
         host,
@@ -329,6 +310,20 @@ class BuildRouteTests(unittest.TestCase):
             self.assertNotIn("DOTNET_HOST_PATH", invocation.args[1])
             self.assertEqual(invocation.args[1]["DOTNET_GENERATE_ASPNET_CERTIFICATE"], "false")
             commands = [call.args[0] for call in run.call_args_list]
+            self.assertEqual(
+                commands[0],
+                [
+                    "cargo",
+                    "fetch",
+                    "--locked",
+                    "--target",
+                    target,
+                    "--target",
+                    "aarch64-apple-darwin",
+                    "--target",
+                    "x86_64-apple-darwin",
+                ],
+            )
             fixture = Path(commands[-1][0])
             self.assertEqual(fixture.name, "abi.exe")
             self.assertEqual(fixture.parent.parent, build_root)
@@ -388,17 +383,6 @@ class BuildRouteTests(unittest.TestCase):
             )
             for name in package_names:
                 self.assertEqual((destination / name).read_bytes(), payload)
-
-    def test_package_verification_rejects_changed_bytes(self):
-        with tempfile.TemporaryDirectory() as directory:
-            package_directory = Path(directory)
-            package = package_directory / "Permission.0.1.0.nupkg"
-            package.write_bytes(b"accepted")
-            hashes = {package.name: hashlib.sha256(package.read_bytes()).hexdigest()}
-            windows.verify_packages(package_directory, hashes)
-            package.write_bytes(b"changed")
-            with self.assertRaisesRegex(ValueError, "differs from the accepted package pair"):
-                windows.verify_packages(package_directory, hashes)
 
 
 if __name__ == "__main__":

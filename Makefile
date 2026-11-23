@@ -3,13 +3,13 @@ MACOS_LIBRARY := $(CURDIR)/Artifacts/CSystemPermissions.xcframework/macos-arm64_
 
 .DEFAULT_GOAL := check
 SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
-.PHONY: check check-source test-managed check-distribution lint native native-verify test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools docs clean
+.PHONY: check check-source test-managed check-distribution lint native native-verify test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools clean
 check: check-source test test-consumer
 
 check-source: lint test-rust test-managed
-check-distribution: native-verify test-bindings test-distribution-tools docs
+check-distribution: native-verify test-bindings test-distribution-tools
 clean:
-	$(SDK_TOOLING) clean .build target .native-build build/bindings build/docs build/windows \
+	$(SDK_TOOLING) clean .build target .native-build build/bindings build/windows \
 	  bindings/dotnet/runtimes \
 	  bindings/dotnet/src/NaviApps.SystemPermissions/bin bindings/dotnet/src/NaviApps.SystemPermissions/obj \
 	  bindings/dotnet/src/NaviApps.SystemPermissions.Windows/bin bindings/dotnet/src/NaviApps.SystemPermissions.Windows/obj \
@@ -33,9 +33,6 @@ test-bindings:
 	$(SDK_TOOLING) python distribution/verify_bindings.py
 test-distribution-tools:
 	$(SDK_TOOLING) python -m unittest discover -s distribution/tests -v
-docs:
-	$(SDK_TOOLING) docs
-
 .PHONY: format
 format:
 	mise run format
