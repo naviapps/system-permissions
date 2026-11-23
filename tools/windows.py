@@ -1,92 +1,22 @@
 #!/usr/bin/env python3
-"""Build and check private Windows packages in an existing owned worker."""
+"""Build and check Windows x64 packages on an owned worker."""
 
 import argparse
 import hashlib
 import json
 import os
-import platform
-import re
-import shlex
 import subprocess
-import sys
 import tempfile
 import tomllib
 from contextlib import ExitStack
 from pathlib import Path
 
-from _tooling import REPOSITORY, load, load_candidate, verify
+from _tooling import load, support_inputs
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGET = "x86_64-pc-windows-msvc"
 RID = "win-x64"
-HOST_TARGETS = {"arm64": "aarch64-pc-windows-msvc", "x64": TARGET}
-MACHINES = {"arm64": 0xAA64, "x64": 0x8664}
 RECEIPT = "system-permissions-windows.json"
-
-
-def host_architecture():
-    architecture = {
-        "arm64": "arm64",
-        "aarch64": "arm64",
-        "amd64": "x64",
-        "x86_64": "x64",
-    }.get(platform.machine().lower())
-    if sys.platform != "win32" or architecture is None:
-        raise SystemExit("Use an owned Windows ARM64 or x64 worker")
-    return architecture
-
-
-def pe_machine(path):
-    with path.open("rb") as image:
-        dos = image.read(64)
-        if len(dos) == 64 and dos[:2] == b"MZ":
-            image.seek(int.from_bytes(dos[60:], "little"))
-            header = image.read(6)
-            if len(header) == 6 and header[:4] == b"PE\0\0":
-                return int.from_bytes(header[4:], "little")
-    raise ValueError(f"Invalid PE header: {path}")
-
-
-def arm64_host_x64_environment(environment):
-    env = environment.copy()
-    if (
-        env.get("VSCMD_ARG_HOST_ARCH", "").lower() != "arm64"
-        or env.get("VSCMD_ARG_TGT_ARCH", "").lower() != "x64"
-    ):
-        raise SystemExit("Prepare VsDevCmd.bat -host_arch=arm64 -arch=x64 before building")
-    if pe_machine(Path(sys.executable)) != MACHINES["arm64"]:
-        raise SystemExit("Use native ARM64 Python for this build")
-    vc = Path(env.get("VCTOOLSINSTALLDIR", ""))
-    tools = vc / "bin" / "HostARM64" / "x64"
-    if not vc.is_absolute() or any(
-        not (tools / name).is_file() or pe_machine(tools / name) != MACHINES["arm64"]
-        for name in ("cl.exe", "link.exe", "dumpbin.exe")
-    ):
-        raise SystemExit("Select the native ARM64-hosted x64 MSVC tools")
-    dotnet = Path(env.get("DOTNET_BIN", ""))
-    if not dotnet.is_absolute() or not dotnet.is_file() or pe_machine(dotnet) != MACHINES["x64"]:
-        raise SystemExit("Set DOTNET_BIN to the absolute path of the x64 .NET 10 executable")
-    env.update(
-        CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=str(tools / "link.exe"),
-        PATH=str(tools) + os.pathsep + env.get("PATH", ""),
-        DOTNET_ROOT=str(dotnet.parent),
-        DOTNET_ROOT_X64=str(dotnet.parent),
-        DOTNET_CLI_TELEMETRY_OPTOUT="1",
-        DOTNET_NOLOGO="1",
-        DOTNET_CLI_USE_MSBUILD_SERVER="0",
-        DOTNET_GENERATE_ASPNET_CERTIFICATE="false",
-        MSBUILDDISABLENODEREUSE="1",
-        DOTNET_CLI_UI_LANGUAGE="en",
-        VSLANG="1033",
-    )
-    encoded = env.get("CARGO_ENCODED_RUSTFLAGS")
-    flags = encoded.split("\x1f") if encoded else shlex.split(env.get("RUSTFLAGS", ""))
-    env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join([*flags, "-Ctarget-feature=+crt-static"])
-    info = subprocess.check_output([str(dotnet), "--info"], cwd=ROOT, env=env, text=True)
-    if not re.search(r"(?m)^[ \t]+Architecture:[ \t]+x64[ \t]*$", info):
-        raise SystemExit("Use the x64 .NET 10 SDK for the Windows x64 fixture")
-    return env, tools, str(dotnet)
 
 
 def verify_packages(directory, packages):
@@ -177,39 +107,25 @@ def publish_x64(package_source, output, artifacts, receipt, bindings, tooling):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--architecture", choices=("x64",), default="x64")
-    parser.add_argument("--tooling-source", type=Path, help="Local candidate SDK tooling checkout")
-    parser.add_argument(
-        "--tooling-revision", help="Exact Git commit of the local tooling candidate"
-    )
     args = parser.parse_args(argv)
-    if (args.tooling_source is None) != (args.tooling_revision is None):
-        parser.error("Use --tooling-source and --tooling-revision together")
-    host = host_architecture()
-    pins = ROOT / "tools/tooling-sources.json"
-    tooling_revision = args.tooling_revision or json.loads(pins.read_text())[REPOSITORY]
-    selected = load
-    if args.tooling_source is not None:
-        selected = load_candidate(args.tooling_source, args.tooling_revision)
+    tool_inputs = support_inputs()
 
     import bindings as sdk_bindings
 
-    windows = selected("windows")
-    bindings = selected("bindings")
-    artifact_tooling = selected("artifacts")
-    cargo = selected("cargo")
-    notice_targets = (*selected("native").DARWIN_TARGETS, TARGET)
+    windows = load("windows")
+    host = windows.host_architecture()
+    bindings = load("bindings")
+    artifact_tooling = load("artifacts")
+    cargo = load("cargo")
+    notice_targets = (*load("native").DARWIN_TARGETS, TARGET)
     emulated = host == "arm64"
     environment = {
         key.upper(): value for key, value in os.environ.items() if key.upper() != "DOTNET_HOST_PATH"
     }
-    if emulated and args.tooling_source is None:
-        env, tools, dotnet = arm64_host_x64_environment(environment)
-    elif emulated:
-        env, tools, dotnet = windows.native_environment(
-            host, environment, target_architecture="x64"
-        )
-    else:
-        env, tools, dotnet = windows.native_environment("x64", environment)
+    environment["DOTNET_GENERATE_ASPNET_CERTIFICATE"] = "false"
+    env, tools, dotnet = windows.native_environment(
+        host, environment, target_architecture=args.architecture
+    )
     version = subprocess.check_output([dotnet, "--version"], cwd=ROOT, env=env, text=True).strip()
     if version != tomllib.loads((ROOT / "mise.toml").read_text())["tools"]["dotnet"]:
         raise SystemExit("Use the pinned x64 .NET SDK from mise.toml")
@@ -229,7 +145,7 @@ def main(argv=None):
     pinned = tomllib.loads((ROOT / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
     if (
         not compiler.startswith("rustc " + pinned + " ")
-        or "host: " + HOST_TARGETS[host] not in compiler_info
+        or "host: " + windows.MSVC_TARGETS[host] not in compiler_info
     ):
         raise SystemExit("Use the pinned Rust toolchain built for the host architecture")
 
@@ -306,8 +222,7 @@ def main(argv=None):
             cwd=ROOT,
             env=env,
         )
-        if pe_machine(fixture) != MACHINES["x64"]:
-            raise SystemExit("The C fixture differs from the selected runtime architecture")
+        windows.require_pe_machine(fixture, args.architecture)
         run(fixture)
         env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"] = str(library)
         bindings.run_managed(
@@ -323,17 +238,15 @@ def main(argv=None):
         verify_packages(candidate / "packages", packages)
         if hashlib.sha256(library.read_bytes()).hexdigest() != native_hash:
             raise ValueError("The staged Windows DLL changed during acceptance")
-        if args.tooling_source is not None:
-            verify(args.tooling_source, tooling_revision)
-        elif json.loads(pins.read_text())[REPOSITORY] != tooling_revision:
-            raise ValueError("The SDK tooling pin changed during Windows acceptance")
+        if support_inputs() != tool_inputs:
+            raise ValueError("SDK tool inputs changed during Windows acceptance")
         receipt = {
             "target": TARGET,
             "runtime": RID,
             "hostArchitecture": host,
             "executionMode": "x64-emulation" if emulated else "native",
             "compiler": compiler,
-            "toolingRevision": tooling_revision,
+            "toolInputs": tool_inputs,
             "exports": sorted(expected),
             "nativeSha256": native_hash,
             "packages": packages,

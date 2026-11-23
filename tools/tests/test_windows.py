@@ -22,94 +22,60 @@ def write_pe(path, machine):
 
 
 class CrossEnvironmentTests(unittest.TestCase):
-    def setUp(self):
-        directory = tempfile.TemporaryDirectory()
-        self.addCleanup(directory.cleanup)
-        self.root = Path(directory.name).resolve()
-        self.python = self.root / "python.exe"
-        self.dotnet = self.root / "dotnet-x64/dotnet.exe"
-        self.tools = self.root / "vc/bin/HostARM64/x64"
-        write_pe(self.python, windows.MACHINES["arm64"])
-        write_pe(self.dotnet, windows.MACHINES["x64"])
-        for name in ("cl.exe", "link.exe", "dumpbin.exe"):
-            write_pe(self.tools / name, windows.MACHINES["arm64"])
-        self.environment = {
-            "VSCMD_ARG_HOST_ARCH": "ARM64",
-            "VSCMD_ARG_TGT_ARCH": "X64",
-            "VCTOOLSINSTALLDIR": str(self.root / "vc"),
-            "DOTNET_BIN": str(self.dotnet),
-            "RUSTFLAGS": "-Clink-arg=/INCREMENTAL:NO",
-        }
-        self.enterContext(patch.object(windows.sys, "executable", str(self.python)))
-        self.check = self.enterContext(
-            patch.object(
-                windows.subprocess,
-                "check_output",
-                return_value="Host:\n  Architecture: x64\n",
-            )
-        )
-
-    def test_accepts_arm64_host_tools_and_x64_dotnet(self):
-        env, tools, dotnet = windows.arm64_host_x64_environment(self.environment)
-        self.assertEqual(tools, self.tools)
-        self.assertEqual(dotnet, str(self.dotnet))
-        self.assertEqual(env["CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"], str(tools / "link.exe"))
-        self.assertEqual(env["DOTNET_ROOT_X64"], str(self.dotnet.parent))
-        self.assertEqual(env["DOTNET_GENERATE_ASPNET_CERTIFICATE"], "false")
-        self.assertEqual(
-            env["CARGO_ENCODED_RUSTFLAGS"].split("\x1f"),
-            ["-Clink-arg=/INCREMENTAL:NO", "-Ctarget-feature=+crt-static"],
-        )
-        self.assertEqual(self.check.call_args.args[0], [dotnet, "--info"])
-
-    def test_rejects_an_arm64_target_shell(self):
-        with self.assertRaisesRegex(SystemExit, "-host_arch=arm64 -arch=x64"):
-            windows.arm64_host_x64_environment(dict(self.environment, VSCMD_ARG_TGT_ARCH="ARM64"))
-        self.check.assert_not_called()
-
-    def test_rejects_emulated_python_or_msvc(self):
-        write_pe(self.python, windows.MACHINES["x64"])
-        with self.assertRaisesRegex(SystemExit, "native ARM64 Python"):
-            windows.arm64_host_x64_environment(self.environment)
-        write_pe(self.python, windows.MACHINES["arm64"])
-        write_pe(self.tools / "link.exe", windows.MACHINES["x64"])
-        with self.assertRaisesRegex(SystemExit, "native ARM64-hosted x64 MSVC"):
-            windows.arm64_host_x64_environment(self.environment)
-        self.check.assert_not_called()
-
-    def test_rejects_arm64_dotnet_before_running_it(self):
-        write_pe(self.dotnet, windows.MACHINES["arm64"])
-        with self.assertRaisesRegex(SystemExit, "absolute path of the x64 .NET 10"):
-            windows.arm64_host_x64_environment(self.environment)
-        self.check.assert_not_called()
-
-    def test_requires_dotnet_to_report_x64(self):
-        self.check.return_value = "Host:\n  Architecture: arm64\n"
-        with self.assertRaisesRegex(SystemExit, "Use the x64 .NET 10 SDK"):
-            windows.arm64_host_x64_environment(self.environment)
+    def test_arm64_host_requires_the_explicit_x64_dotnet_executable(self):
+        support = windows.load("windows")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            dotnet = root / "dotnet-x64/dotnet.exe"
+            tools = root / "vc/bin/HostARM64/x64"
+            environment = {"DOTNET_BIN": str(dotnet), "DOTNET_ROOT": str(root / "arm64")}
+            with (
+                patch.object(
+                    support, "native_msvc_environment", return_value=(environment, tools)
+                ) as select,
+                patch.object(
+                    support.subprocess,
+                    "check_output",
+                    side_effect=["Architecture: x64", "10.0.403"],
+                ) as probe,
+            ):
+                write_pe(dotnet, 0xAA64)
+                with self.assertRaisesRegex(ValueError, "target-native x64 PE image"):
+                    support.native_environment("arm64", environment, target_architecture="x64")
+                probe.assert_not_called()
+                select.reset_mock()
+                write_pe(dotnet, 0x8664)
+                env, selected_tools, executable = support.native_environment(
+                    "arm64", environment, target_architecture="x64"
+                )
+            select.assert_called_once_with("arm64", environment, target_architecture="x64")
+            self.assertEqual(selected_tools, tools)
+            self.assertEqual(executable, str(dotnet))
+            self.assertEqual(env["DOTNET_ROOT_X64"], str(dotnet.parent))
+            self.assertIn("-Ctarget-feature=+crt-static", env["CARGO_ENCODED_RUSTFLAGS"])
 
 
 class BuildRouteTests(unittest.TestCase):
     def test_rejects_an_arm64_output_before_detecting_the_host(self):
         with (
-            patch.object(windows, "host_architecture") as host,
+            patch.object(windows, "load") as load,
             patch.object(sys, "stderr"),
             self.assertRaises(SystemExit) as rejected,
         ):
             windows.main(["--architecture", "arm64"])
         self.assertEqual(rejected.exception.code, 2)
-        host.assert_not_called()
+        load.assert_not_called()
 
     def test_x64_is_the_default_target_on_both_hosts(self):
         for host in ("arm64", "x64"):
             with self.subTest(host=host):
                 self.check_route(host)
 
-    def test_candidate_tooling_owns_the_hosted_build_and_packages(self):
-        self.check_route("arm64", tooling_revision="d" * 40)
+    def test_refuses_to_publish_after_sdk_tool_inputs_change(self):
+        self.check_route("arm64", change_inputs=True)
 
-    def test_refuses_to_publish_after_candidate_tooling_changes(self):
-        self.check_route("arm64", tooling_revision="d" * 40, change_tooling=True)
+    def test_rejects_a_non_x64_c_fixture_before_running_it(self):
+        self.check_route("arm64", fixture_machine=0xAA64)
 
     def test_requires_pinned_dotnet_before_cargo(self):
         self.check_route("arm64", dotnet_version="10.0.404")
@@ -151,27 +117,26 @@ class BuildRouteTests(unittest.TestCase):
         self,
         host,
         *,
-        tooling_revision=None,
         dotnet_version="10.0.403",
         missing_stdlib=False,
         retry=False,
         replace_dll=False,
         change_staged=False,
-        change_tooling=False,
+        change_inputs=False,
+        fixture_machine=0x8664,
     ):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
             target, rid = "x86_64-pc-windows-msvc", "win-x64"
             library = root / "target" / target / "release/system_permissions.dll"
-            write_pe(library, windows.MACHINES["x64"])
+            write_pe(library, 0x8664)
             accepted_dll = library.read_bytes()
             library.with_suffix(".dll.lib").write_bytes(b"accepted import library")
             (root / "rust-toolchain.toml").write_text('[toolchain]\nchannel = "1.99.1"\n')
             (root / "mise.toml").write_text('[tools]\ndotnet = "10.0.403"\n')
-            pin = "a" * 40
-            (root / "tools").mkdir()
-            (root / "tools/tooling-sources.json").write_text(json.dumps({windows.REPOSITORY: pin}))
-            candidate = root / "tooling-candidate"
+            support = windows.load("windows")
+            tool_inputs = {"tools/vendor/example.py": "a" * 64}
+            final_inputs = {"tools/vendor/example.py": "d" * 64} if change_inputs else tool_inputs
             libdir = root / "stdlib" / target
             libdir.mkdir(parents=True)
             if not missing_stdlib:
@@ -189,7 +154,7 @@ class BuildRouteTests(unittest.TestCase):
             package_names = ("Permission.0.1.0.nupkg", "Permission.Windows.0.1.0.nupkg")
 
             def compile_fixture(*_args, output, **_kwargs):
-                write_pe(output, windows.MACHINES["x64"])
+                write_pe(output, fixture_machine)
 
             def stage_fixture(source, destination):
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -228,7 +193,8 @@ class BuildRouteTests(unittest.TestCase):
                     raise OSError("Fixture receipt write failed")
                 path.write_text(json.dumps(data), encoding="utf-8")
 
-            windows_tools = Mock()
+            windows_tools = Mock(wraps=support, MSVC_TARGETS=support.MSVC_TARGETS)
+            windows_tools.host_architecture.return_value = host
             windows_tools.native_environment.return_value = environment
             windows_tools.verify_library.return_value = {"system_permissions_abi_version"}
             bindings_tools = Mock()
@@ -242,7 +208,7 @@ class BuildRouteTests(unittest.TestCase):
             sdk_bindings = Mock()
             sdk_bindings.pack_and_consume.side_effect = pack_fixture
             compiler = "rustc 1.99.1 (fixture)"
-            info = f"{compiler}\nhost: {windows.HOST_TARGETS[host]}\n"
+            info = f"{compiler}\nhost: {support.MSVC_TARGETS[host]}\n"
             outputs = {
                 (dotnet, "--version"): dotnet_version + "\n",
                 ("rustc", "--version", "--verbose"): info,
@@ -255,26 +221,12 @@ class BuildRouteTests(unittest.TestCase):
                 "cargo": cargo_tools,
                 "native": native_tools,
             }
-            load_candidate = Mock(side_effect=modules.get)
             with (
                 patch.object(windows, "ROOT", root),
-                patch.object(windows, "host_architecture", return_value=host),
+                patch.object(windows, "load", side_effect=modules.get),
                 patch.object(
-                    windows, "arm64_host_x64_environment", return_value=environment
-                ) as cross,
-                patch.object(
-                    windows,
-                    "load",
-                    side_effect=modules.get,
-                ) as load,
-                patch.object(windows, "load_candidate", return_value=load_candidate) as select,
-                patch.object(
-                    windows,
-                    "verify",
-                    side_effect=ValueError("Pinned SDK tooling source has local changes")
-                    if change_tooling
-                    else None,
-                ) as verify,
+                    windows, "support_inputs", side_effect=(tool_inputs, final_inputs) * 3
+                ),
                 patch.object(
                     windows.subprocess,
                     "check_output",
@@ -285,39 +237,38 @@ class BuildRouteTests(unittest.TestCase):
                 patch.dict(os.environ, {"DOTNET_HOST_PATH": "other architecture"}),
                 patch("builtins.print") as report,
             ):
-                args = []
-                if tooling_revision:
-                    args = [
-                        "--architecture",
-                        "x64",
-                        "--tooling-source",
-                        str(candidate),
-                        "--tooling-revision",
-                        tooling_revision,
-                    ]
                 if dotnet_version != "10.0.403" or missing_stdlib:
                     pattern = (
                         "pinned Rust standard library" if missing_stdlib else "pinned x64 .NET"
                     )
                     with self.assertRaisesRegex(SystemExit, pattern):
-                        windows.main(args)
+                        windows.main([])
                     run.assert_not_called()
+                    return
+                if fixture_machine != 0x8664:
+                    with self.assertRaisesRegex(ValueError, "target-native x64 PE image"):
+                        windows.main([])
+                    self.assertTrue(
+                        all(Path(call.args[0][0]).name != "abi.exe" for call in run.call_args_list)
+                    )
+                    bindings_tools.run_managed.assert_not_called()
+                    sdk_bindings.pack_and_consume.assert_not_called()
+                    artifacts_tools.publish.assert_not_called()
                     return
                 if change_staged:
                     with self.assertRaisesRegex(ValueError, "staged Windows DLL changed"):
-                        windows.main(args)
+                        windows.main([])
                     artifacts_tools.publish.assert_not_called()
                     self.assertFalse(evidence.exists())
                     self.assertFalse(output.exists())
                     return
-                if change_tooling:
-                    with self.assertRaisesRegex(ValueError, "tooling source has local changes"):
-                        windows.main(args)
+                if change_inputs:
+                    with self.assertRaisesRegex(ValueError, "SDK tool inputs changed"):
+                        windows.main([])
                     sdk_bindings.pack_and_consume.assert_called_once()
-                    verify.assert_called_once_with(candidate, tooling_revision)
                     artifacts_tools.publish.assert_not_called()
                     return
-                windows.main(args)
+                windows.main([])
                 if retry:
                     receipt = evidence / "system-permissions-windows.json"
                     previous_receipt = receipt.read_bytes()
@@ -326,7 +277,7 @@ class BuildRouteTests(unittest.TestCase):
                     payload = b"package rebuilt on retry"
                     write_failure = True
                     with self.assertRaisesRegex(OSError, "Fixture receipt write failed"):
-                        windows.main(args)
+                        windows.main([])
                     self.assertEqual(receipt.read_bytes(), previous_receipt)
                     self.assertEqual(local_receipt.read_bytes(), previous_local)
                     for name in package_names:
@@ -335,7 +286,7 @@ class BuildRouteTests(unittest.TestCase):
                             (output / "packages" / name).read_bytes(), b"package fixture"
                         )
                     write_failure = False
-                    windows.main(args)
+                    windows.main([])
                     self.assertEqual(
                         json.loads(receipt.read_bytes())["packages"],
                         dict.fromkeys(package_names, hashlib.sha256(payload).hexdigest()),
@@ -345,14 +296,6 @@ class BuildRouteTests(unittest.TestCase):
                         self.assertEqual((evidence / name).read_bytes(), payload)
                         self.assertEqual((output / "packages" / name).read_bytes(), payload)
                     return
-            if tooling_revision:
-                select.assert_called_once_with(candidate, tooling_revision)
-                verify.assert_called_once_with(candidate, tooling_revision)
-                load.assert_not_called()
-            else:
-                select.assert_not_called()
-                verify.assert_not_called()
-                load_candidate.assert_not_called()
             cargo_tools.runtime_notices.assert_called_once_with(root, env)
             cargo_tools.CargoDependencies.assert_called_once_with(
                 root,
@@ -361,18 +304,11 @@ class BuildRouteTests(unittest.TestCase):
                 env,
             )
             cargo_tools.CargoDependencies.return_value.retain_notices.assert_called_once_with()
-            if tooling_revision or host == "x64":
-                invocation = windows_tools.native_environment.call_args
-                self.assertEqual(invocation.args[0], host)
-                self.assertEqual(
-                    invocation.kwargs, {"target_architecture": "x64"} if tooling_revision else {}
-                )
-                self.assertNotIn("DOTNET_HOST_PATH", invocation.args[1])
-                cross.assert_not_called()
-            else:
-                cross.assert_called_once()
-                self.assertNotIn("DOTNET_HOST_PATH", cross.call_args.args[0])
-                windows_tools.native_environment.assert_not_called()
+            invocation = windows_tools.native_environment.call_args
+            self.assertEqual(invocation.args[0], host)
+            self.assertEqual(invocation.kwargs, {"target_architecture": "x64"})
+            self.assertNotIn("DOTNET_HOST_PATH", invocation.args[1])
+            self.assertEqual(invocation.args[1]["DOTNET_GENERATE_ASPNET_CERTIFICATE"], "false")
             commands = [call.args[0] for call in run.call_args_list]
             fixture = Path(commands[-1][0])
             self.assertEqual(fixture.name, "abi.exe")
@@ -408,7 +344,7 @@ class BuildRouteTests(unittest.TestCase):
             self.assertEqual(receipt["nativeSha256"], hashlib.sha256(accepted_dll).hexdigest())
             self.assertEqual(receipt["target"], target)
             self.assertEqual(receipt["runtime"], rid)
-            self.assertEqual(receipt["toolingRevision"], tooling_revision or pin)
+            self.assertEqual(receipt["toolInputs"], tool_inputs)
             self.assertEqual(receipt["hostArchitecture"], host)
             self.assertEqual(
                 receipt["executionMode"], "native" if host == "x64" else "x64-emulation"

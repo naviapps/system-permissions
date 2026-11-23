@@ -14,8 +14,8 @@ macOS requires version 26 or later. The Windows adapter uses Windows 10 version
 1903 or later APIs. On Windows 11 ARM64, run the installed package in an x64
 .NET process under emulation.
 
-From the repository root, prepare the pinned tools and immutable SDK tooling cache
-as described in the [developer setup](https://github.com/naviapps/system-permissions#development-and-verification).
+From the repository root, prepare the pinned tools described in the
+[developer setup](https://github.com/naviapps/system-permissions#development-and-verification).
 On macOS, run:
 
 ```sh
@@ -36,22 +36,19 @@ On a VM Runner worker that was prepared with both SDKs, use its
 `ToolsRoot\dotnet-x64\dotnet.exe` for `DOTNET_BIN`.
 
 ```batch
-call "<Visual Studio>\Common7\Tools\VsDevCmd.bat" -host_arch=arm64 -arch=x64
 set "DOTNET_BIN=%ProgramFiles%\dotnet\x64\dotnet.exe"
 rustup target add x86_64-pc-windows-msvc
 mise exec -- python -B tools/windows.py
 ```
 
-On an x64 Windows worker, the same script selects native x64 MSVC with the
-native Rust and .NET SDKs. On Windows ARM64, the paired options `--tooling-source`
-and `--tooling-revision` can select a reviewed local SDK Tooling checkout that
-automatically prepares the cross-target Visual Studio environment. Pass its full
-Git commit, and keep `DOTNET_BIN` set to the absolute x64 executable.
+The script selects ARM64-hosted x64 MSVC on an ARM64 worker and native x64 MSVC
+on an x64 worker. Keep `DOTNET_BIN` set to the absolute x64 executable on ARM64.
 
 The script places the package pair in `build/windows/win-x64/packages/`.
 On ARM64, Windows executes the x64 Rust and C fixtures and the x64 .NET process
 through emulation. The C fixture, managed fixture and NuGet package use the
-same staged DLL. The receipt records its SHA-256, target, host and execution mode.
+same staged DLL. The receipt records its SHA-256, target, host, execution mode
+and SHA-256 hashes of the checked-in build support.
 When `NAVI_CI_ARTIFACTS` is set, the x64 receipt and packages go in its
 `win-x64` subdirectory. Each x64 output publishes the package pair and receipt
 together after verification.

@@ -271,15 +271,12 @@ Rust tests cover the full metadata, access, option validation and store ordering
 contracts. Binding tests exercise typed values and errors across the native
 boundary, installed package consumption, async cancellation and native effects.
 
-Developer commands use the immutable `sdk-tooling` revision in
-`tools/tooling-sources.json`. See [shared developer setup](https://github.com/naviapps/sdk-tooling#readme)
-for verified caches, offline use and source overrides. Ordinary SwiftPM and NuGet
-consumers do not need that setup.
+Developer commands use the build support included in this repository.
 
 Use Rust 1.99.1 and .NET 10 with repository/task-specific tool selection. Rebuild
 native artifacts after Rust, header, native build or upstream-notice changes.
 `Artifacts/native-build.json` binds those inputs to the tracked framework. Required
-upstream notices and Rust runtime provenance remain under `ThirdParty/`. The shared
+upstream notices and Rust runtime provenance remain under `ThirdParty/`. The
 macOS builder combines the original notice bodies verbatim in
 `Resources/ThirdPartyNotices.txt`; NuGet packages retain the original notice files.
 
@@ -307,7 +304,7 @@ with a fake effect and projects injected success and API-failure results through
 `SystemPermissionsStore`. Invalid options and an
 invalid Automation target must fail before provider dispatch. Every checker is
 explicitly injected; no live permission query, request or Settings operation runs.
-The pinned shared driver isolates SwiftPM configuration, caches and build output,
+The consumer check isolates SwiftPM configuration, caches and build output,
 excludes Rust and developer tools, and uses the tracked framework without rebuilding
 it. `--git-config` and `--mirror-config` accept explicit private dependency policy.
 This source/artifact gate runs in the macOS workflow on pushes to `main`, pull
@@ -348,8 +345,8 @@ are not migrated or modified by installing this SDK.
 
 `mise install` prepares pinned developer tools. Run `mise run lint` before builds
 or `mise run format` to format owned source. Compiler and native acceptance remain
-in the existing check targets. Shared policy comes from the pinned SDK tooling;
-vendored code, native artifacts and original notices are excluded.
+in the existing check targets. Formatting excludes vendored code, native artifacts
+and original notices.
 
 Run `mise exec -- make docs` on macOS to build both Swift API catalogs with symbol
 graphs from this package and treat DocC warnings as errors. The retained archives
