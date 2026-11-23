@@ -15,12 +15,11 @@ macOS requires version 26 or later. The Windows adapter uses Windows 10 version
 .NET process under emulation.
 
 From the repository root, prepare the pinned tools described in the
-[developer setup](../../README.md#development-and-verification) and select the
-[distribution tooling checkout](../../README.md#distribution-verification).
+[developer setup](../../README.md#development-and-verification).
 On macOS, run:
 
 ```sh
-mise exec -- python3 -B tools/bindings.py
+mise exec -- make test-bindings
 ```
 
 This uses the tracked framework, runs C and managed fixtures and packs both
@@ -38,9 +37,8 @@ On a VM Runner worker that was prepared with both SDKs, use its
 
 ```batch
 set "DOTNET_BIN=%ProgramFiles%\dotnet\x64\dotnet.exe"
-set "NAVI_SDK_TOOLING_SOURCE=C:\path\to\sdk-tooling"
 rustup target add x86_64-pc-windows-msvc
-mise exec -- python -B tools/windows.py
+mise run sdk-tooling -- python fixtures/distribution/windows.py
 ```
 
 The script selects ARM64-hosted x64 MSVC on an ARM64 worker and native x64 MSVC

@@ -11,9 +11,9 @@ import tomllib
 from contextlib import ExitStack
 from pathlib import Path
 
-from _tooling import load, support_inputs
+from sdk_tooling.adapters import load, support_inputs
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 TARGET = "x86_64-pc-windows-msvc"
 RID = "win-x64"
 RECEIPT = "system-permissions-windows.json"
@@ -108,7 +108,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--architecture", choices=("x64",), default="x64")
     args = parser.parse_args(argv)
-    tool_inputs = support_inputs()
+    tool_inputs = support_inputs(ROOT)
 
     import bindings as sdk_bindings
 
@@ -238,7 +238,7 @@ def main(argv=None):
         verify_packages(candidate / "packages", packages)
         if hashlib.sha256(library.read_bytes()).hexdigest() != native_hash:
             raise ValueError("The staged Windows DLL changed during acceptance")
-        if support_inputs() != tool_inputs:
+        if support_inputs(ROOT) != tool_inputs:
             raise ValueError("SDK tool inputs changed during Windows acceptance")
         receipt = {
             "target": TARGET,

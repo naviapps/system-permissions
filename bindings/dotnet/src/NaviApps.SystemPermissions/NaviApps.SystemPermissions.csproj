@@ -21,7 +21,7 @@
     <None Include="../../../../ThirdParty/**/*" Exclude="../../../../ThirdParty/**/.DS_Store;../../../../ThirdParty/**/registry-notices.json" Pack="true" PackagePath="licenses/" />
   </ItemGroup>
   <Target Name="RequireSystemPermissionsNativeAsset" BeforeTargets="GenerateNuspec">
-    <Error Condition="'$(SystemPermissionsRuntimeIdentifier)' == '' or '$(SystemPermissionsNativeFileName)' == ''" Text="Build and pack with tools/bindings.py or tools/windows.py to select a source-built native runtime." />
+    <Error Condition="'$(SystemPermissionsRuntimeIdentifier)' == '' or '$(SystemPermissionsNativeFileName)' == ''" Text="Use the documented SystemPermissions distribution commands to select a source-built native runtime." />
     <Error Condition="!Exists('../../runtimes/$(SystemPermissionsRuntimeIdentifier)/native/$(SystemPermissionsNativeFileName)')" Text="Source-built native runtime is missing. Run the platform bindings tool." />
   </Target>
 </Project>

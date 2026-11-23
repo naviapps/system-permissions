@@ -8,6 +8,17 @@ commands = [
 
 [windows]
 commands = [
-  ["python", "-E", "-S", "-B", "-m", "unittest", "discover", "-s", "tools/tests"],
-  ["python", "-I", "-B", "{tooling}/tasks/sdk", "windows", "tools/windows.py"],
+  [
+    "python",
+    "-I",
+    "-B",
+    "{tooling}/tasks/sdk",
+    "python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "fixtures/distribution/tests",
+  ],
+  ["python", "-I", "-B", "{tooling}/tasks/sdk", "windows", "fixtures/distribution/windows.py"],
 ]

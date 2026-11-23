@@ -11,9 +11,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _tooling import load
+from sdk_tooling.adapters import load
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 DOTNET_PROJECTS = ("NaviApps.SystemPermissions", "NaviApps.SystemPermissions.Windows")
 
 
@@ -158,7 +158,9 @@ def main():
     parser.add_argument("--library", type=Path, help="Explicit already source-built test library")
     args = parser.parse_args()
     if sys.platform != "darwin":
-        raise SystemExit("Use tools/windows.py to build x64 on an owned Windows worker")
+        raise SystemExit(
+            "Use fixtures/distribution/windows.py to build x64 on an owned Windows worker"
+        )
     tooling = load("bindings")
     dotnet = os.environ.get("DOTNET_BIN") or shutil.which("dotnet")
     if not dotnet:
@@ -183,7 +185,7 @@ def main():
         / "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/CSystemPermissions"
     )
     if not library.is_file():
-        raise SystemExit("Build the tracked framework with tools/native.py first")
+        raise SystemExit("Build the tracked framework with make native first")
     output = ROOT / "build/bindings"
     output.mkdir(parents=True, exist_ok=True)
     tooling.compile_c(

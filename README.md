@@ -10,14 +10,15 @@ and [macOS catalog](https://github.com/naviapps/system-permissions/blob/main/Sou
 
 ## Layout
 
-| Path                                             | Contents                                                  |
-| ------------------------------------------------ | --------------------------------------------------------- |
-| `crates/`                                        | Rust implementation and C API in `crates/ffi/include/`    |
-| `crates/ffi/tests/c/`                            | C ABI tests                                               |
-| `Sources/`, `Tests/`                             | Swift bindings and tests                                  |
-| `bindings/dotnet/src/<project>/`                 | Named .NET source projects                                |
-| `bindings/dotnet/tests/SystemPermissions.Tests/` | .NET test project and fixtures                            |
-| `Artifacts/`, `ThirdParty/`, `tools/`            | Native packages, upstream notices and development tooling |
+| Path                                             | Contents                                                |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| `crates/`                                        | Rust implementation and C API in `crates/ffi/include/`  |
+| `crates/ffi/tests/c/`                            | C ABI tests                                             |
+| `Sources/`, `Tests/`                             | Swift bindings and tests                                |
+| `bindings/dotnet/src/<project>/`                 | Named .NET source projects                              |
+| `bindings/dotnet/tests/SystemPermissions.Tests/` | .NET test project and fixtures                          |
+| `Artifacts/`, `ThirdParty/`, `native.toml`       | Native packages, upstream notices and artifact settings |
+| `fixtures/`                                      | Consumer and distribution checks                        |
 
 ## Responsibility
 
@@ -273,7 +274,8 @@ boundary, installed package consumption, async cancellation and native effects.
 
 Use Rust 1.99.1 and .NET 10 with repository/task-specific tool selection. Rebuild
 native artifacts after Rust, header, native build or upstream-notice changes.
-`Artifacts/native-build.json` binds those inputs to the tracked framework. Required
+[`native.toml`](native.toml) declares the build settings.
+`Artifacts/native-build.json` binds the build inputs to the tracked framework. Required
 upstream notices and Rust runtime provenance remain under `ThirdParty/`. The
 macOS builder combines the original notice bodies verbatim in
 `Resources/ThirdPartyNotices.txt`; NuGet packages retain the original notice files.
@@ -299,11 +301,9 @@ offline checks. The checks use synthetic effects.
 The `sdk-tooling` task in [`mise.toml`](mise.toml) pins its exact commit. The
 regular checks fetch that version automatically.
 
-For local distribution checks, prepare a clean SDK Tooling checkout at the
-same pin and set its absolute path for the SDK's native and packaging scripts:
+Run local distribution checks with the same pinned tooling:
 
 ```sh
-export NAVI_SDK_TOOLING_SOURCE=/path/to/sdk-tooling
 mise exec -- make check-distribution
 ```
 

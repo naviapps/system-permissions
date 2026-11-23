@@ -135,8 +135,10 @@ class BuildRouteTests(unittest.TestCase):
             (root / "rust-toolchain.toml").write_text('[toolchain]\nchannel = "1.99.1"\n')
             (root / "mise.toml").write_text('[tools]\ndotnet = "10.0.403"\n')
             support = windows.load("windows")
-            tool_inputs = {"tools/vendor/example.py": "a" * 64}
-            final_inputs = {"tools/vendor/example.py": "d" * 64} if change_inputs else tool_inputs
+            tool_inputs = {"fixtures/distribution/windows.py": "a" * 64}
+            final_inputs = (
+                {"fixtures/distribution/windows.py": "d" * 64} if change_inputs else tool_inputs
+            )
             libdir = root / "stdlib" / target
             libdir.mkdir(parents=True)
             if not missing_stdlib:
