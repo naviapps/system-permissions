@@ -92,7 +92,7 @@ def main(argv=None):
     host = windows.host_architecture()
     artifacts = load("artifacts")
     cargo = load("cargo")
-    notice_targets = (*load("native").DARWIN_TARGETS, TARGET)
+    notice_targets = (*load("ffi").DARWIN_TARGETS, TARGET)
     emulated = host == "arm64"
     environment = {
         key.upper(): value for key, value in os.environ.items() if key.upper() != "DOTNET_HOST_PATH"

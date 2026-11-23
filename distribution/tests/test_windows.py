@@ -203,7 +203,7 @@ class BuildRouteTests(unittest.TestCase):
             artifacts_tools.stage_native.side_effect = stage_fixture
             artifacts_tools.write_json.side_effect = report_fixture
             cargo_tools = Mock()
-            native_tools = Mock(DARWIN_TARGETS=("aarch64-apple-darwin", "x86_64-apple-darwin"))
+            ffi_tools = Mock(DARWIN_TARGETS=("aarch64-apple-darwin", "x86_64-apple-darwin"))
             compiler = "rustc 1.99.1 (fixture)"
             info = f"{compiler}\nhost: {support.MSVC_TARGETS[host]}\n"
             outputs = {
@@ -217,7 +217,7 @@ class BuildRouteTests(unittest.TestCase):
                 "dotnet": dotnet_tools,
                 "artifacts": artifacts_tools,
                 "cargo": cargo_tools,
-                "native": native_tools,
+                "ffi": ffi_tools,
             }
             with (
                 patch.object(windows, "ROOT", root),

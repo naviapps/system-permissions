@@ -9,10 +9,10 @@ catalogs = [
 ]
 retain_archives = true
 
-[installed]
+[rust_c]
 git_url = "https://github.com/naviapps/system-permissions.git"
 rust_packages = ["system-permissions"]
 
-[installed.c]
+[rust_c.c]
 framework = "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework"
 header = "system_permissions.h"

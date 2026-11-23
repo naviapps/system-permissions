@@ -348,7 +348,7 @@ exact SDK commit. The optional evidence path must be unused and outside the SDK
 checkout:
 
 ```sh
-mise run sdk-tooling -- installed-consumers \
+mise run sdk-tooling -- rust-c-consumers \
   --git-source /path/to/system-permissions.bundle \
   --evidence /path/to/new/installed-consumers.json
 ```

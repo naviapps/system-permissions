@@ -11,15 +11,15 @@ check-distribution: native-verify test-bindings test-distribution-tools docs
 lint:
 	mise run lint
 native:
-	$(SDK_TOOLING) native
+	$(SDK_TOOLING) xcframework
 native-verify:
-	$(SDK_TOOLING) native --verify
+	$(SDK_TOOLING) xcframework --verify
 test:
 	swift test $(SWIFT_FLAGS)
 test-consumer:
 	$(SDK_TOOLING) swift-consumer
 test-installed-consumers:
-	$(SDK_TOOLING) installed-consumers
+	$(SDK_TOOLING) rust-c-consumers
 test-rust:
 	cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 	cargo test --workspace --locked --offline
