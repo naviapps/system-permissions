@@ -1,0 +1,10 @@
+/target/
+/.build/
+/.native-build/
+/.swiftpm/
+/build/
+.DS_Store
+**/bin/
+**/obj/
+**/__pycache__/
+/bindings/dotnet/runtimes/

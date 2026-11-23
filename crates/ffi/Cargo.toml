@@ -1,0 +1,20 @@
+[package]
+name = "system-permissions-ffi"
+version.workspace = true
+autotests = false
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "system_permissions"
+crate-type = ["cdylib"]
+
+[dependencies]
+permissions-core = { package = "system-permissions", path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+system-permissions-windows = { path = "../windows" }

@@ -1,0 +1,17 @@
+{
+  "namedOptions": [
+    { "name": "alert", "rawValue": 1 },
+    { "name": "badge", "rawValue": 2 },
+    { "name": "sound", "rawValue": 4 },
+    { "name": "criticalAlert", "rawValue": 8 },
+    { "name": "provisional", "rawValue": 16 },
+    { "name": "providesAppNotificationSettings", "rawValue": 32 }
+  ],
+  "combinations": [
+    { "names": ["alert", "sound"], "rawValue": 5 },
+    { "names": ["alert", "badge", "sound"], "rawValue": 7 },
+    { "names": ["alert", "sound", "provisional"], "rawValue": 21 },
+    { "names": ["criticalAlert", "provisional", "providesAppNotificationSettings"], "rawValue": 56 }
+  ],
+  "rawMasks": [0, 64, 9223372036854775808, 18446744073709551615]
+}
