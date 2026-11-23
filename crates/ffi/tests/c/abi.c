@@ -40,6 +40,7 @@ static char *copy_result(SystemPermissionsResult *result, uint32_t status) {
 }
 
 static void test_contract(void) {
+    assert(system_permissions_abi_version() == SYSTEM_PERMISSIONS_ABI_VERSION);
     assert(system_permissions_result_status(NULL) == 1);
     assert(system_permissions_result_data(NULL) == NULL);
     assert(system_permissions_result_len(NULL) == 0);

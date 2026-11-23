@@ -56,6 +56,8 @@ internal static class Native
         }
     }
 
+    [DllImport(Library, EntryPoint = "system_permissions_abi_version", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern uint AbiVersion();
     [DllImport(Library, EntryPoint = "system_permissions_call", CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr Dispatch(byte[] data, nuint length);
     [DllImport(Library, EntryPoint = "system_permissions_store_new", CallingConvention = CallingConvention.Cdecl)]

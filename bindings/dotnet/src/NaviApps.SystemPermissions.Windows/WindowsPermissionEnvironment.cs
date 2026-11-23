@@ -67,6 +67,9 @@ public sealed class WindowsPermissionEnvironment(IWindowsPermissionDispatcher di
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!OperatingSystem.IsWindows()) return Task.FromResult(Unavailable());
+        // The previous wire ABI could start consent UI. Reject that library before calling it.
+        if (Native.AbiVersion() != 2)
+            throw new PermissionContractException("The Windows desktop permission adapter requires native ABI 2.", "incompatibleAbi");
         var result = Native.Call(new { op = "windowsRequest", permission, options }).GetProperty("result");
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(Native.Read<PermissionOperationResult>(result));

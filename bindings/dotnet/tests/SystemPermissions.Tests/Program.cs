@@ -45,6 +45,7 @@ var camera = PermissionDescriptor.Camera;
 var granted = PermissionOperationResult.Supported(PermissionStatus.Granted);
 var denied = PermissionOperationResult.Supported(PermissionStatus.Denied);
 var unknown = PermissionOperationResult.Supported(PermissionStatus.Unknown);
+Check(Native.AbiVersion() == 2, "The binding must load the Windows desktop contract from ABI 2.");
 Check(PermissionContract.BuiltIns.Contains(camera), "Built-in descriptors must project to managed values.");
 Check(PermissionContract.AllowsAccess(PermissionStatus.Ephemeral), "A bare status must bridge to the access query.");
 Check(PermissionOperationResult.Supported(PermissionStatus.Limited).AllowsAccess && !denied.AllowsAccess,
