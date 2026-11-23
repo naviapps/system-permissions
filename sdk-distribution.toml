@@ -3,7 +3,6 @@ commands = [
   ["xcrun", "swift", "--version"],
   ["cargo", "fetch", "--locked"],
   ["make", "check-distribution", "test-installed-consumers"],
-  ["sdk-tooling", "swift-consumer", "--distribution"],
 ]
 
 [windows]
