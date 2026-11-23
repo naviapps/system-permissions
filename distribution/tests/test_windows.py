@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from fixtures.distribution import windows
+from distribution import verify_windows as windows
 
 
 def write_pe(path, machine):
@@ -89,16 +89,15 @@ class BuildRouteTests(unittest.TestCase):
             output.mkdir()
             unrelated = output / "notes.txt"
             unrelated.write_text("Keep this file", encoding="utf-8")
-            bindings, artifacts = Mock(), Mock()
+            artifacts = Mock()
             with self.assertRaisesRegex(ValueError, "outside the SDK package pair"):
                 windows.publish_x64(
                     root,
                     output,
                     {"packages": {"fixture.nupkg": "digest"}},
-                    bindings,
                     artifacts,
                 )
-            bindings.stage_native.assert_not_called()
+            artifacts.stage_native.assert_not_called()
             artifacts.publish.assert_not_called()
             self.assertEqual(unrelated.read_text(encoding="utf-8"), "Keep this file")
 
@@ -125,9 +124,9 @@ class BuildRouteTests(unittest.TestCase):
             (root / "rust-toolchain.toml").write_text('[toolchain]\nchannel = "1.99.1"\n')
             (root / "mise.toml").write_text('[tools]\ndotnet = "10.0.403"\n')
             support = windows.load("windows")
-            tool_inputs = {"fixtures/distribution/windows.py": "a" * 64}
+            tool_inputs = {"distribution/verify_windows.py": "a" * 64}
             final_inputs = (
-                {"fixtures/distribution/windows.py": "d" * 64} if change_inputs else tool_inputs
+                {"distribution/verify_windows.py": "d" * 64} if change_inputs else tool_inputs
             )
             libdir = root / "stdlib" / target
             libdir.mkdir(parents=True)
@@ -161,9 +160,8 @@ class BuildRouteTests(unittest.TestCase):
                 shutil.copyfile(source, destination)
                 return destination
 
-            def pack_fixture(_dotnet, selected_library, _rid, _env, output, *, tooling):
+            def pack_fixture(_dotnet, selected_library, _rid, _env, output):
                 self.assertEqual(selected_library.read_bytes(), accepted_dll)
-                self.assertIs(tooling, bindings_tools)
                 packages = output / "packages"
                 packages.mkdir()
                 for name in package_names:
@@ -197,11 +195,12 @@ class BuildRouteTests(unittest.TestCase):
             windows_tools.host_architecture.return_value = host
             windows_tools.native_environment.return_value = environment
             windows_tools.verify_library.return_value = {"system_permissions_abi_version"}
-            bindings_tools = Mock()
-            bindings_tools.compile_c.side_effect = compile_fixture
-            bindings_tools.stage_native.side_effect = stage_fixture
-            bindings_tools.run_managed.side_effect = managed_fixture
+            c_compiler = Mock()
+            c_compiler.compile_c.side_effect = compile_fixture
+            dotnet_tools = Mock()
+            dotnet_tools.run_managed.side_effect = managed_fixture
             artifacts_tools = Mock(wraps=windows.load("artifacts"))
+            artifacts_tools.stage_native.side_effect = stage_fixture
             artifacts_tools.write_json.side_effect = report_fixture
             cargo_tools = Mock()
             native_tools = Mock(DARWIN_TARGETS=("aarch64-apple-darwin", "x86_64-apple-darwin"))
@@ -214,7 +213,8 @@ class BuildRouteTests(unittest.TestCase):
             }
             modules = {
                 "windows": windows_tools,
-                "bindings": bindings_tools,
+                "c_compiler": c_compiler,
+                "dotnet": dotnet_tools,
                 "artifacts": artifacts_tools,
                 "cargo": cargo_tools,
                 "native": native_tools,
@@ -249,7 +249,7 @@ class BuildRouteTests(unittest.TestCase):
                     self.assertTrue(
                         all(Path(call.args[0][0]).name != "abi.exe" for call in run.call_args_list)
                     )
-                    bindings_tools.run_managed.assert_not_called()
+                    dotnet_tools.run_managed.assert_not_called()
                     pack.assert_not_called()
                     artifacts_tools.publish.assert_not_called()
                     return
@@ -327,15 +327,13 @@ class BuildRouteTests(unittest.TestCase):
             accepted_copy = fixture.parent / library.name
             self.assertEqual(windows_tools.verify_library.call_args.args[0], accepted_copy)
             self.assertEqual(
-                bindings_tools.compile_c.call_args.kwargs["libraries"],
+                c_compiler.compile_c.call_args.kwargs["libraries"],
                 [accepted_copy.with_suffix(".dll.lib")],
             )
-            self.assertEqual(bindings_tools.run_managed.call_args.args[0], dotnet)
+            self.assertEqual(dotnet_tools.run_managed.call_args.args[0], dotnet)
             self.assertEqual(env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"], str(accepted_copy))
             self.assertNotIn(str(library.parent), env["PATH"].split(os.pathsep))
-            pack.assert_called_once_with(
-                dotnet, accepted_copy, rid, env, fixture.parent, tooling=bindings_tools
-            )
+            pack.assert_called_once_with(dotnet, accepted_copy, rid, env, fixture.parent)
             receipt = json.loads((destination / "system-permissions-windows.json").read_bytes())
             self.assertEqual(receipt["nativeSha256"], hashlib.sha256(accepted_dll).hexdigest())
             self.assertEqual(receipt["target"], target)

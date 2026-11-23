@@ -18,7 +18,8 @@ and [macOS catalog](https://github.com/naviapps/system-permissions/blob/main/Sou
 | `bindings/dotnet/src/<project>/`                 | Named .NET source projects                              |
 | `bindings/dotnet/tests/SystemPermissions.Tests/` | .NET test project and fixtures                          |
 | `Artifacts/`, `ThirdParty/`, `native.toml`       | Native packages, upstream notices and artifact settings |
-| `fixtures/`                                      | Consumer and distribution checks                        |
+| `fixtures/consumers/`                            | Independent package consumers                           |
+| `distribution/`                                  | Package and native acceptance drivers                   |
 
 ## Responsibility
 
@@ -319,7 +320,7 @@ gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
 catalogs and tests C ownership, managed bindings and clean local NuGet
 consumption. Use `mise exec -- make native` when the framework needs rebuilding.
 
-`make test-consumer` builds and runs `fixtures/swift-consumer/` against a disposable
+`make test-consumer` builds and runs `fixtures/consumers/swift/` against a disposable
 SDK containing only `Package.swift`, `Sources`, `Tests`, `Artifacts` and `ThirdParty`.
 It imports both public products, loads native metadata and descriptor validation,
 round-trips notification masks including all 64 bits, validates Settings navigation

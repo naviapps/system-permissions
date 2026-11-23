@@ -13,9 +13,9 @@ from pathlib import Path
 from sdk_tooling import vm_environment as vm
 from sdk_tooling.adapters import load, support_inputs
 
-from fixtures.distribution.bindings import pack_and_consume
+from distribution.verify_bindings import pack_and_consume
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 TARGET = "x86_64-pc-windows-msvc"
 RID = "win-x64"
 RECEIPT = "system-permissions-windows.json"
@@ -36,7 +36,7 @@ def verify_packages(directory, packages, *, receipt_name=None):
         raise ValueError("Windows package output differs from the accepted package pair")
 
 
-def publish_x64(package_source, destination, receipt, bindings, tooling):
+def publish_x64(package_source, destination, receipt, artifacts):
     packages = receipt["packages"]
     names = packages.keys() | {RECEIPT}
     if (
@@ -77,10 +77,10 @@ def publish_x64(package_source, destination, receipt, bindings, tooling):
         stage = Path(directory) / RID
         stage.mkdir()
         for name in packages:
-            bindings.stage_native(package_source / name, stage / name)
-        tooling.write_json(stage / RECEIPT, receipt)
+            artifacts.stage_native(package_source / name, stage / name)
+        artifacts.write_json(stage / RECEIPT, receipt)
         verify(stage)
-        tooling.publish(stage, destination, lambda: verify(destination))
+        artifacts.publish(stage, destination, lambda: verify(destination))
 
 
 def main(argv=None):
@@ -90,8 +90,7 @@ def main(argv=None):
 
     windows = load("windows")
     host = windows.host_architecture()
-    bindings = load("bindings")
-    artifact_tooling = load("artifacts")
+    artifacts = load("artifacts")
     cargo = load("cargo")
     notice_targets = (*load("native").DARWIN_TARGETS, TARGET)
     emulated = host == "arm64"
@@ -169,15 +168,15 @@ def main(argv=None):
     local = ROOT / "build/windows"
     output = (vm.artifacts_dir(env) or local) / RID
     with (
-        artifact_tooling.build_lock(local),
+        artifacts.build_lock(local),
         tempfile.TemporaryDirectory(dir=local, prefix="candidate-") as directory,
     ):
         candidate = Path(directory)
         fixture = candidate / "abi.exe"
-        library = bindings.stage_native(
+        library = artifacts.stage_native(
             built / "system_permissions.dll", candidate / "system_permissions.dll"
         )
-        import_library = bindings.stage_native(
+        import_library = artifacts.stage_native(
             built / "system_permissions.dll.lib", candidate / "system_permissions.dll.lib"
         )
         native_hash = hashlib.sha256(library.read_bytes()).hexdigest()
@@ -189,7 +188,7 @@ def main(argv=None):
             env,
             "x64",
         )
-        bindings.compile_c(
+        load("c_compiler").compile_c(
             ROOT / "crates/ffi/tests/c/abi.c",
             output=fixture,
             compiler=[tools / "cl.exe"],
@@ -202,14 +201,14 @@ def main(argv=None):
         windows.require_pe_machine(fixture, "x64")
         run(fixture)
         env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"] = str(library)
-        bindings.run_managed(
+        load("dotnet").run_managed(
             dotnet,
             ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
             cwd=ROOT,
             env=env,
             verify_style=True,
         )
-        packages = pack_and_consume(dotnet, library, RID, env, candidate, tooling=bindings)
+        packages = pack_and_consume(dotnet, library, RID, env, candidate)
         verify_packages(candidate / "packages", packages)
         if hashlib.sha256(library.read_bytes()).hexdigest() != native_hash:
             raise ValueError("The staged Windows DLL changed during acceptance")
@@ -240,7 +239,7 @@ def main(argv=None):
                 "product integration",
             ],
         }
-        publish_x64(candidate / "packages", output, receipt, bindings, artifact_tooling)
+        publish_x64(candidate / "packages", output, receipt, artifacts)
     print(f"Windows {RID} nonprompting acceptance passed on {host} ({receipt['executionMode']}).")
 
 

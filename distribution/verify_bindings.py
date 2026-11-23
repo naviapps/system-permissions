@@ -13,7 +13,7 @@ from pathlib import Path
 
 from sdk_tooling.adapters import load
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 DOTNET_PROJECTS = ("NaviApps.SystemPermissions", "NaviApps.SystemPermissions.Windows")
 
 
@@ -21,13 +21,13 @@ def run(*args, env):
     subprocess.run([str(a) for a in args], cwd=ROOT, env=env, check=True)
 
 
-def pack_and_consume(dotnet, library, rid, env, output, *, tooling):
+def pack_and_consume(dotnet, library, rid, env, output):
     runtime = ROOT / "bindings/dotnet/runtimes" / rid / "native"
     native_name = "libsystem_permissions.dylib" if rid.startswith("osx-") else library.name
-    tooling.stage_native(library, runtime / native_name)
+    load("artifacts").stage_native(library, runtime / native_name)
     packages = output / "packages"
     for name in DOTNET_PROJECTS:
-        tooling.pack_project(
+        load("dotnet").pack_project(
             dotnet,
             ROOT / "bindings/dotnet/src" / name / (name + ".csproj"),
             output=packages,
@@ -45,7 +45,7 @@ def pack_and_consume(dotnet, library, rid, env, output, *, tooling):
         if path.is_file() and path.name not in (".DS_Store", "registry-notices.json")
     }
     hashes = {
-        package.name: tooling.audit_package(
+        package.name: load("nuget").audit_package(
             package,
             expected_files={
                 "README.md": ROOT / "bindings/dotnet/README.md",
@@ -58,37 +58,11 @@ def pack_and_consume(dotnet, library, rid, env, output, *, tooling):
         )
         for package in built
     }
-    tooling.run_isolated_consumer(
+    load("nuget").run_isolated_consumer(
         dotnet,
         packages=built,
         references={"NaviApps.SystemPermissions.Windows": "0.1.0"},
-        source=r"""using System;
-using System.Threading;
-using System.Threading.Tasks;
-using NaviApps.SystemPermissions;
-using NaviApps.SystemPermissions.Windows;
-
-var camera = PermissionContract.DecodeDescriptorJson("{\"id\":\"camera\"}"u8);
-if (camera != PermissionDescriptor.Camera ||
-    !PermissionContract.Metadata(camera, PermissionPlatform.Windows).Capability.SupportsStatusCheck)
-    throw new Exception("The packaged native contract did not load.");
-using var store = new PermissionStore();
-store.Track([camera]);
-var token = store.Begin(camera) ?? throw new Exception("Native store admission failed.");
-store.Apply([new PermissionUpdate(camera, token, PermissionOperationResult.Supported(PermissionStatus.Denied))]);
-if (store.Get(camera)?.Value != PermissionStatus.Denied)
-    throw new Exception("The packaged native store did not retain its result.");
-var checker = new PermissionChecker(new WindowsPermissionEnvironment(new NeverDispatch()));
-var settings = await checker.OpenSettingsAsync(PermissionDescriptor.Accessibility);
-if (settings.Kind != "unsupported")
-    throw new Exception("The packaged Windows checker did not apply Settings admission.");
-Console.WriteLine("Clean NuGet consumer loaded packaged native code and both managed packages.");
-
-sealed class NeverDispatch : IWindowsPermissionDispatcher
-{
-    public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken token) =>
-        throw new Exception("The package fixture must not dispatch native effects.");
-}""",
+        source=(ROOT / "fixtures/consumers/dotnet/Program.cs").read_text(encoding="utf-8"),
         work_parent=output,
         env=env,
         runtime=rid,
@@ -105,9 +79,8 @@ def main():
     args = parser.parse_args()
     if sys.platform != "darwin":
         raise SystemExit(
-            "Use fixtures/distribution/windows.py to build x64 on an owned Windows worker"
+            "Use distribution/verify_windows.py to build x64 on an owned Windows worker"
         )
-    tooling = load("bindings")
     dotnet = os.environ.get("DOTNET_BIN") or shutil.which("dotnet")
     if not dotnet:
         raise SystemExit("Set DOTNET_BIN to the task's .NET 10 executable")
@@ -134,7 +107,7 @@ def main():
         raise SystemExit("Build the tracked framework with make native first")
     output = ROOT / "build/bindings"
     output.mkdir(parents=True, exist_ok=True)
-    tooling.compile_c(
+    load("c_compiler").compile_c(
         ROOT / "crates/ffi/tests/c/abi.c",
         output=output / "abi",
         compiler=["xcrun", "clang"],
@@ -147,14 +120,14 @@ def main():
     )
     run(output / "abi", env=env)
     env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"] = str(library)
-    tooling.run_managed(
+    load("dotnet").run_managed(
         dotnet,
         ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
         cwd=ROOT,
         env=env,
         verify_style=True,
     )
-    packages = pack_and_consume(dotnet, library, rid, env, output, tooling=tooling)
+    packages = pack_and_consume(dotnet, library, rid, env, output)
     (output / "acceptance.json").write_text(
         json.dumps(
             {

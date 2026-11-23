@@ -835,9 +835,9 @@
   ],
   "schema": 3,
   "toolInputs": {
-    "artifacts.py": "3bf1908b5a1bc9f5097302ab1081a432c64ac2d78cf4c2841e3e49a9059f2306",
+    "artifacts.py": "3668f2853423bd15efa062eda4f7b94e7ff26b829f0c3297d67fbad91cc37632",
     "cargo.py": "fe4e389f0411b34f1a1f248389992a59b0d2f23f50c90eed4e1938749efa5678",
-    "native.py": "baedab3e8e7931f22049d15f12e5e4bb05b73e39e735e9f4ff9272ebc88e51ff",
-    "tools/native-dep-info/src/main.rs": "0a59fb162cc855001899ad9b83875fac0ed837e73caafd116453352c9b56e2cf"
+    "crates/rustc-dep-info/src/main.rs": "0a59fb162cc855001899ad9b83875fac0ed837e73caafd116453352c9b56e2cf",
+    "native.py": "baedab3e8e7931f22049d15f12e5e4bb05b73e39e735e9f4ff9272ebc88e51ff"
   }
 }

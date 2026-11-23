@@ -41,7 +41,7 @@ From the SDK root, use a checkout of the SDK Tooling revision pinned in
 ```powershell
 $env:DOTNET_BIN = 'C:\Program Files\dotnet\x64\dotnet.exe'
 rustup target add x86_64-pc-windows-msvc
-python -I -B 'C:\source\sdk-tooling\tasks\sdk' python -m fixtures.distribution.windows
+python -I -B 'C:\source\sdk-tooling\tasks\sdk' python -m distribution.verify_windows
 ```
 
 The script selects ARM64-hosted x64 MSVC on an ARM64 worker and native x64 MSVC
