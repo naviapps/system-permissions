@@ -12,12 +12,11 @@ from pathlib import Path
 
 from sdk_tooling import vm_environment as vm
 from sdk_tooling.adapters import load, support_inputs
+from sdk_tooling.windows_delivery import RID, TARGET
 
 from distribution.verify_bindings import pack_and_consume
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGET = "x86_64-pc-windows-msvc"
-RID = "win-x64"
 RECEIPT = "system-permissions-windows.json"
 
 
@@ -125,15 +124,13 @@ def main(argv=None):
     def run(*args):
         subprocess.run([str(a) for a in args], cwd=ROOT, env=env, check=True)
 
-    rust_libdir = Path(
-        subprocess.check_output(
-            ["rustc", "--print", "target-libdir", "--target", TARGET], cwd=ROOT, env=env, text=True
-        ).strip()
-    )
-    if not rust_libdir.is_absolute() or not any(
-        library.is_file() for library in rust_libdir.glob("libstd-*.rlib")
-    ):
-        raise SystemExit(f"Install the pinned Rust standard library for {TARGET}")
+    rust_libdir = subprocess.check_output(
+        ["rustc", "--print", "target-libdir", "--target", TARGET], cwd=ROOT, env=env, text=True
+    ).strip()
+    try:
+        windows.require_rust_target_stdlib(rust_libdir, TARGET)
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
 
     run("cargo", "fetch", "--locked", "--target", TARGET)
     cargo.runtime_notices(ROOT, env)
@@ -200,12 +197,12 @@ def main(argv=None):
         )
         windows.require_pe_machine(fixture, "x64")
         run(fixture)
-        env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"] = str(library)
         load("dotnet").run_managed(
             dotnet,
             ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
             cwd=ROOT,
             env=env,
+            properties={"SystemPermissionsNativeLibrary": str(library)},
             verify_style=True,
         )
         packages = pack_and_consume(dotnet, library, RID, env, candidate)

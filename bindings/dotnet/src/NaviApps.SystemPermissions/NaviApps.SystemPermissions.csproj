@@ -17,11 +17,15 @@
   <ItemGroup>
     <None Include="../../../../LICENSE" Pack="true" PackagePath="/" />
     <None Include="../../README.md" Pack="true" PackagePath="/README.md" />
-    <None Include="../../runtimes/$(SystemPermissionsRuntimeIdentifier)/native/$(SystemPermissionsNativeFileName)" Condition="'$(SystemPermissionsRuntimeIdentifier)' != '' and '$(SystemPermissionsNativeFileName)' != ''" Pack="true" PackagePath="runtimes/$(SystemPermissionsRuntimeIdentifier)/native/%(Filename)%(Extension)" />
+    <None Include="$(SystemPermissionsNativeLibrary)" Condition="'$(SystemPermissionsNativeLibrary)' != ''"
+          CopyToOutputDirectory="Always" Pack="true"
+          PackagePath="runtimes/$(SystemPermissionsRuntimeIdentifier)/native/%(Filename)%(Extension)">
+      <Link Condition="'$(OS)' == 'Windows_NT'">system_permissions.dll</Link>
+      <Link Condition="'$(OS)' != 'Windows_NT'">libsystem_permissions.dylib</Link>
+    </None>
     <None Include="../../../../ThirdParty/**/*" Exclude="../../../../ThirdParty/**/.DS_Store;../../../../ThirdParty/**/registry-notices.json" Pack="true" PackagePath="licenses/" />
   </ItemGroup>
   <Target Name="RequireSystemPermissionsNativeAsset" BeforeTargets="GenerateNuspec">
-    <Error Condition="'$(SystemPermissionsRuntimeIdentifier)' == '' or '$(SystemPermissionsNativeFileName)' == ''" Text="Use the documented SystemPermissions distribution commands to select a source-built native runtime." />
-    <Error Condition="!Exists('../../runtimes/$(SystemPermissionsRuntimeIdentifier)/native/$(SystemPermissionsNativeFileName)')" Text="Source-built native runtime is missing. Run the platform bindings tool." />
+    <Error Condition="'$(SystemPermissionsRuntimeIdentifier)' == '' or !Exists('$(SystemPermissionsNativeLibrary)')" Text="Use the documented SystemPermissions distribution commands to select a source-built native runtime." />
   </Target>
 </Project>

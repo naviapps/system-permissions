@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -25,10 +24,6 @@ internal static class Native
 {
     private const string Library = "system_permissions";
     internal static readonly JsonSerializerOptions Json = CreateOptions();
-    static Native()
-    {
-        NativeLibrary.SetDllImportResolver(typeof(Native).Assembly, Resolve);
-    }
     private static JsonSerializerOptions CreateOptions()
     {
         var options = new JsonSerializerOptions
@@ -61,15 +56,6 @@ internal static class Native
         }
     }
 
-    private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? search)
-    {
-        if (name != Library) return IntPtr.Zero;
-        var explicitPath = Environment.GetEnvironmentVariable("SYSTEM_PERMISSIONS_NATIVE_LIBRARY");
-        if (!string.IsNullOrEmpty(explicitPath)) return NativeLibrary.Load(explicitPath);
-        string file = OperatingSystem.IsWindows() ? Library + ".dll" : OperatingSystem.IsMacOS() ? "lib" + Library + ".dylib" : "lib" + Library + ".so";
-        string packaged = Path.Combine(AppContext.BaseDirectory, "runtimes", RuntimeInformation.RuntimeIdentifier, "native", file);
-        return File.Exists(packaged) ? NativeLibrary.Load(packaged) : NativeLibrary.Load(file, assembly, search);
-    }
     [DllImport(Library, EntryPoint = "system_permissions_call", CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr Dispatch(byte[] data, nuint length);
     [DllImport(Library, EntryPoint = "system_permissions_store_new", CallingConvention = CallingConvention.Cdecl)]

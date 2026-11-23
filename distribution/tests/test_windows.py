@@ -179,8 +179,8 @@ class BuildRouteTests(unittest.TestCase):
                         replacement.write_bytes(accepted_dll + b"concurrent Cargo output")
                         replacement.replace(library)
 
-            def managed_fixture(_dotnet, _project, *, env, **_kwargs):
-                selected_library = Path(env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"])
+            def managed_fixture(_dotnet, _project, *, properties, **_kwargs):
+                selected_library = Path(properties["SystemPermissionsNativeLibrary"])
                 self.assertEqual(selected_library.read_bytes(), accepted_dll)
 
             def report_fixture(path, data):
@@ -331,7 +331,10 @@ class BuildRouteTests(unittest.TestCase):
                 [accepted_copy.with_suffix(".dll.lib")],
             )
             self.assertEqual(dotnet_tools.run_managed.call_args.args[0], dotnet)
-            self.assertEqual(env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"], str(accepted_copy))
+            self.assertEqual(
+                dotnet_tools.run_managed.call_args.kwargs["properties"],
+                {"SystemPermissionsNativeLibrary": str(accepted_copy)},
+            )
             self.assertNotIn(str(library.parent), env["PATH"].split(os.pathsep))
             pack.assert_called_once_with(dotnet, accepted_copy, rid, env, fixture.parent)
             receipt = json.loads((destination / "system-permissions-windows.json").read_bytes())

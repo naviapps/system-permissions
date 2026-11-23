@@ -41,5 +41,5 @@ format:
 	mise run format
 
 test-managed:
-	SYSTEM_PERMISSIONS_NATIVE_LIBRARY="$(MACOS_LIBRARY)" \
-		dotnet run --configuration Release --project bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj
+	dotnet run --configuration Release --project bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj \
+		-p:SystemPermissionsNativeLibrary="$(MACOS_LIBRARY)"

@@ -35,13 +35,12 @@ Microsoft installs the x64 SDK in the `x64` subfolder alongside ARM64 .NET.
 On a VM Runner worker that was prepared with both SDKs, use its
 `ToolsRoot\dotnet-x64\dotnet.exe` for `DOTNET_BIN`.
 
-From the SDK root, use a checkout of the SDK Tooling revision pinned in
-[`mise.toml`](../../mise.toml).
+From the SDK root, use the SDK Tooling task pinned in [`mise.toml`](../../mise.toml).
 
 ```powershell
 $env:DOTNET_BIN = 'C:\Program Files\dotnet\x64\dotnet.exe'
 rustup target add x86_64-pc-windows-msvc
-python -I -B 'C:\source\sdk-tooling\tasks\sdk' python -m distribution.verify_windows
+mise run sdk-tooling -- windows distribution/verify_windows.py
 ```
 
 The script selects ARM64-hosted x64 MSVC on an ARM64 worker and native x64 MSVC
@@ -67,10 +66,8 @@ dotnet add package NaviApps.SystemPermissions.Windows --version 0.1.0 --source "
 
 The Windows package brings in `NaviApps.SystemPermissions`. A host that only needs
 shared contracts and injected effects can reference `NaviApps.SystemPermissions`
-instead. Packages carry the native asset and required notices; installed consumers
-do not need Rust or this source checkout. Do not set
-`SYSTEM_PERMISSIONS_NATIVE_LIBRARY` in an installed consumer: that override is for
-explicit local testing.
+instead. Packages carry the native asset and required notices. The .NET runtime
+resolves the native asset after restore.
 
 ## Usage
 
@@ -215,8 +212,9 @@ operation outcomes and cannot be applied to the permission store.
 
 The platform binding tools validate C ownership and deterministic .NET contracts,
 then pack and consume both NuGet packages using a fresh local-only package cache.
-They do not start a VM or request permissions. Clean consumers resolve the packaged
-native library without `SYSTEM_PERMISSIONS_NATIVE_LIBRARY`.
+They do not start a VM or request permissions. Source checks use the
+`SystemPermissionsNativeLibrary` MSBuild property to copy the selected native
+library beside the managed output.
 
 macOS validation consumes the tracked CSystemPermissions framework binary without rebuilding
 or modifying it. Local NuGet staging preserves those bytes under the portable native

@@ -22,9 +22,9 @@ def run(*args, env):
 
 
 def pack_and_consume(dotnet, library, rid, env, output):
-    runtime = ROOT / "bindings/dotnet/runtimes" / rid / "native"
+    runtime = output / "native" / rid
     native_name = "libsystem_permissions.dylib" if rid.startswith("osx-") else library.name
-    load("artifacts").stage_native(library, runtime / native_name)
+    staged = load("artifacts").stage_native(library, runtime / native_name)
     packages = output / "packages"
     for name in DOTNET_PROJECTS:
         load("dotnet").pack_project(
@@ -35,7 +35,7 @@ def pack_and_consume(dotnet, library, rid, env, output):
             env=env,
             properties={
                 "SystemPermissionsRuntimeIdentifier": rid,
-                "SystemPermissionsNativeFileName": native_name,
+                "SystemPermissionsNativeLibrary": str(staged),
             },
         )
     built = [packages / (name + ".0.1.0.nupkg") for name in DOTNET_PROJECTS]
@@ -67,7 +67,6 @@ def pack_and_consume(dotnet, library, rid, env, output):
         env=env,
         runtime=rid,
         properties={"Nullable": "enable", "TreatWarningsAsErrors": "true"},
-        clear_environment=("SYSTEM_PERMISSIONS_NATIVE_LIBRARY",),
         exclude_paths=(ROOT / "target", runtime, library.parent),
     )
     return hashes
@@ -119,12 +118,12 @@ def main():
         env=env,
     )
     run(output / "abi", env=env)
-    env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"] = str(library)
     load("dotnet").run_managed(
         dotnet,
         ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
         cwd=ROOT,
         env=env,
+        properties={"SystemPermissionsNativeLibrary": str(library)},
         verify_style=True,
     )
     packages = pack_and_consume(dotnet, library, rid, env, output)
