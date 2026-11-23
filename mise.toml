@@ -16,7 +16,7 @@ uv = "0.13.6"
 
 [tasks.sdk-tooling]
 description = "Run the pinned SDK Tooling CLI"
-run = "uvx --from git+https://github.com/naviapps/sdk-tooling.git@12d5d1d9f09dd474b7c50892cc24768aef5e3f3b sdk-tooling"
+run = "uvx --from git+https://github.com/naviapps/sdk-tooling.git@cddddce6230566d52e6bf82f2b82796820a46bc2 sdk-tooling"
 
 [tasks.lint]
 description = "Check owned source formatting and semantic lint before builds"
