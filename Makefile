@@ -3,11 +3,17 @@ MACOS_LIBRARY := $(CURDIR)/Artifacts/CSystemPermissions.xcframework/macos-arm64_
 
 .DEFAULT_GOAL := check
 SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
-.PHONY: check check-source test-managed check-distribution lint native native-verify test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools docs
+.PHONY: check check-source test-managed check-distribution lint native native-verify test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools docs clean
 check: check-source test test-consumer
 
 check-source: lint test-rust test-managed
 check-distribution: native-verify test-bindings test-distribution-tools docs
+clean:
+	$(SDK_TOOLING) clean .build target .native-build build/bindings build/docs build/windows \
+	  bindings/dotnet/runtimes \
+	  bindings/dotnet/src/NaviApps.SystemPermissions/bin bindings/dotnet/src/NaviApps.SystemPermissions/obj \
+	  bindings/dotnet/src/NaviApps.SystemPermissions.Windows/bin bindings/dotnet/src/NaviApps.SystemPermissions.Windows/obj \
+	  bindings/dotnet/tests/SystemPermissions.Tests/bin bindings/dotnet/tests/SystemPermissions.Tests/obj
 lint:
 	mise run lint
 native:
