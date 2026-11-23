@@ -21,6 +21,4 @@ jobs:
           persist-credentials: false
       - uses: naviapps/sdk-tooling/.github/actions/test-rust-windows@main
         with:
-          managed-project: bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj
-          native-package: system-permissions-ffi
-          native-property: SystemPermissionsNativeLibrary
+          test-bindings: "true"

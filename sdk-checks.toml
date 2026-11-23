@@ -9,3 +9,7 @@ rust_packages = ["system-permissions"]
 [rust_c.c]
 framework = "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework"
 header = "system_permissions.h"
+
+[windows_bindings]
+packages = ["system-permissions-ffi"]
+projects = ["bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj"]
