@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = "naviapps/sdk-tooling"
 URL = "https://github.com/" + REPOSITORY + ".git"
+_candidate = None
 sys.dont_write_bytecode = True
 
 
@@ -117,7 +118,17 @@ def source():
     with tempfile.TemporaryDirectory(dir=cache, prefix=".pending-") as temporary:
         candidate = Path(temporary)
         git(None, "init", "--quiet", str(candidate))
-        git(candidate, "fetch", "--quiet", "--no-tags", "--depth=1", remote, revision)
+        public_fetch_options = ("-c", "credential.helper=") if remote == URL else ()
+        git(
+            candidate,
+            *public_fetch_options,
+            "fetch",
+            "--quiet",
+            "--no-tags",
+            "--depth=1",
+            remote,
+            revision,
+        )
         git(candidate, "checkout", "--quiet", "--detach", "FETCH_HEAD")
         verify(candidate, revision)
         try:
@@ -125,23 +136,69 @@ def source():
         except OSError:
             if not destination.is_dir():
                 raise
+        # A concurrent publisher may have won. Verify the published bytes either way.
         return verify(destination, revision)
 
 
 def load_candidate(directory, revision):
-    """Select a reviewed, local tooling commit for an explicit developer check."""
+    """Return an independent loader for a byte-verified tooling checkout."""
     if not re.fullmatch(r"[a-f0-9]{40}", revision):
         raise ValueError("A candidate SDK tooling source requires its full Git commit SHA")
     root = verify(directory, revision)
     return lambda name: load(name, _verified_root=root)
 
 
+def add_candidate_options(parser, *, required=False):
+    parser.add_argument(
+        "--tooling-source", type=Path, required=required, help="Local approved SDK tooling checkout"
+    )
+    parser.add_argument(
+        "--tooling-revision",
+        required=required,
+        help="Full Git SHA of the approved tooling checkout",
+    )
+
+
+def select_candidate(parser, args, *, absolute=False):
+    global _candidate
+    directory, revision = args.tooling_source, args.tooling_revision
+    if (directory is None) != (revision is None):
+        parser.error("Use --tooling-source and --tooling-revision together")
+    if directory is None:
+        return []
+    if absolute and not directory.is_absolute():
+        parser.error("Use an absolute path for the approved SDK tooling checkout")
+    if not re.fullmatch(r"[a-f0-9]{40}", revision):
+        parser.error("A candidate SDK tooling source requires its full Git commit SHA")
+    root = verify(directory, revision)
+    selected = root, revision
+    if _candidate is not None and selected != _candidate:
+        raise ValueError("Only one approved SDK tooling checkout may be selected")
+    _candidate = selected
+    return ["--tooling-source", str(root), "--tooling-revision", revision]
+
+
+def candidate_selected():
+    return _candidate is not None
+
+
+def verify_candidate():
+    if _candidate is not None:
+        verify(*_candidate)
+
+
 def load(name, *, _verified_root=None):
     if not re.fullmatch(r"[a-z_]+", name):
         raise ValueError("Invalid SDK tooling module")
-    root = _verified_root if _verified_root is not None else source()
+    root = _verified_root
+    if root is None:
+        root = _candidate[0] if _candidate is not None else source()
     existing = sys.modules.get("sdk_tooling")
     if existing is not None and Path(existing.__file__).resolve().parent != root / "sdk_tooling":
         raise RuntimeError("Different SDK tooling revisions cannot share one Python interpreter")
     sys.path.insert(0, str(root))
     return importlib.import_module("sdk_tooling." + name)
+
+
+if __name__ == "__main__":
+    raise SystemExit(load("hosted_windows").main(ROOT, sys.argv[1:]))
