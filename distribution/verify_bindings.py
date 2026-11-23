@@ -40,6 +40,7 @@ def consume_pair(dotnet, packages, version, env, output, *, runtime=None, exclud
             "DefineConstants": "WINDOWS_ADAPTER",
             "Nullable": "enable",
             "TreatWarningsAsErrors": "true",
+            "JsonSerializerIsReflectionEnabledByDefault": "false",
         },
         exclude_paths=exclude_paths,
     )

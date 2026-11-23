@@ -52,7 +52,8 @@ Use a fresh package cache each time you switch feeds or rebuild a candidate.
 [NuGet package cache resolution](https://learn.microsoft.com/en-us/nuget/consume-packages/managing-the-global-packages-and-cache-folders).
 
 From the SDK checkout used for the distribution run, verify the exact downloaded
-core and adapter together with a fresh local-only restore and execution.
+core and adapter together with a fresh local-only restore and execution. This
+check disables default reflection-based JSON serialization in the consumer.
 
 ```sh
 mise run sdk-tooling -- python distribution/verify_bindings.py --feed "LOCAL_PACKAGE_DIRECTORY"

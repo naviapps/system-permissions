@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Win32.SafeHandles;
 
 [assembly: InternalsVisibleTo("NaviApps.SystemPermissions.Windows")]
@@ -23,18 +24,27 @@ internal sealed class StoreHandle : SafeHandleZeroOrMinusOneIsInvalid
 internal static class Native
 {
     private const string Library = "system_permissions";
-    internal static readonly JsonSerializerOptions Json = CreateOptions();
-    private static JsonSerializerOptions CreateOptions()
+    internal static readonly JsonSerializerOptions Json = new()
     {
-        var options = new JsonSerializerOptions
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        TypeInfoResolver = PermissionJson.Default,
+        Converters =
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
-        };
-        options.Converters.Add(new ExactStringConverter());
-        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
-        return options;
+            new ExactStringConverter(),
+            new JsonStringEnumConverter<PermissionPlatform>(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+            new JsonStringEnumConverter<PermissionStatus>(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+            new JsonStringEnumConverter<PermissionError>(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+            new JsonStringEnumConverter<PhotoAccessLevel>(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+            new JsonStringEnumConverter<PermissionStore.AdmissionKind>(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+        },
+    };
+
+    internal static JsonTypeInfo<T> TypeInfo<T>()
+    {
+        Json.MakeReadOnly();
+        return (JsonTypeInfo<T>)Json.GetTypeInfo(typeof(T));
     }
 
     private sealed class ExactStringConverter : JsonConverter<string>
@@ -97,9 +107,9 @@ internal static class Native
         }
         finally { Free(owner); }
     }
-    internal static JsonElement Call(object command)
+    internal static JsonElement Call<T>(T command)
     {
-        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(command, Json);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(command, TypeInfo<T>());
         return Consume(Dispatch(bytes, (nuint)bytes.Length));
     }
 
@@ -116,10 +126,10 @@ internal static class Native
         return Consume(Dispatch(bytes, (nuint)bytes.Length));
     }
 
-    internal static JsonElement Call(StoreHandle store, object command)
+    internal static JsonElement Call<T>(StoreHandle store, T command)
     {
-        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(command, Json);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(command, TypeInfo<T>());
         return Consume(StoreDispatch(store, bytes, (nuint)bytes.Length));
     }
-    internal static T Read<T>(JsonElement value) => value.Deserialize<T>(Json) ?? throw new PermissionContractException("Missing native value.");
+    internal static T Read<T>(JsonElement value) => value.Deserialize(TypeInfo<T>()) ?? throw new PermissionContractException("Missing native value.");
 }

@@ -31,11 +31,11 @@ internal static class NotificationOptionsContractTests
 
     private static void CheckWire(NotificationRequestOptions options, ulong expected)
     {
-        var payload = JsonSerializer.SerializeToElement(PermissionOptions.Notifications(options), Native.Json);
+        var payload = JsonSerializer.SerializeToElement(PermissionOptions.Notifications(options), Native.TypeInfo<PermissionOptions>());
         Check(payload.GetProperty("kind").GetString() == "notifications", "Notification option kind drift.");
         ulong actual = payload.GetProperty("notificationOptions").GetUInt64();
         Check(actual == expected, $"Notification mask drift: expected {expected}, received {actual}.");
-        Check(payload.Deserialize<PermissionOptions>(Native.Json)?.NotificationOptions == expected, "Raw mask round trip drift.");
+        Check(Native.Read<PermissionOptions>(payload).NotificationOptions == expected, "Raw mask round trip drift.");
     }
 
     private static void Check(bool condition, string message)

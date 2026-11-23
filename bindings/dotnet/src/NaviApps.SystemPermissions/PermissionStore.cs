@@ -9,7 +9,7 @@ public sealed class PermissionStore : IDisposable
     private static readonly Lazy<int> BatchLimit = new(
         () =>
         {
-            int limit = Native.Call(new { op = "storeBatchLimit" }).GetInt32();
+            int limit = Native.Call(new Command.Simple("storeBatchLimit")).GetInt32();
             if (limit < 1) throw new PermissionContractException("Invalid native permission batch limit.", "invalidResult");
             return limit;
         }, LazyThreadSafetyMode.PublicationOnly);
@@ -17,12 +17,12 @@ public sealed class PermissionStore : IDisposable
     private readonly object gate = new();
     private readonly StoreHandle handle = new();
     private bool disposed;
-    private sealed record RefreshAdmission(PermissionDescriptor Permission, ulong Token);
-    private sealed record ScopedAdmission(AdmissionKind Kind, ulong? Token);
+    internal sealed record RefreshAdmission(PermissionDescriptor Permission, ulong Token);
+    internal sealed record ScopedAdmission(AdmissionKind Kind, ulong? Token);
     internal sealed record Observation(PermissionOperationResult Result, PermissionOperationResult? PreviousResult);
-    private enum AdmissionKind { Untracked, InvalidOptions, Isolated, Suppressed, Stored }
+    internal enum AdmissionKind { Untracked, InvalidOptions, Isolated, Suppressed, Stored }
 
-    private JsonElement Call(object command)
+    private JsonElement Call<T>(T command)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         return Native.Call(handle, command);
@@ -47,12 +47,12 @@ public sealed class PermissionStore : IDisposable
 
     internal PermissionSnapshot TrackCaptured(List<PermissionDescriptor> permissions)
     {
-        lock (gate) return Native.Read<PermissionSnapshot>(Call(new { op = "track", permissions }));
+        lock (gate) return Native.Read<PermissionSnapshot>(Call(new Command.Track("track", permissions)));
     }
 
     internal Observation RecordObservation(PermissionDescriptor permission, PermissionOperationResult result)
     {
-        lock (gate) return Native.Read<Observation>(Call(new { op = "recordObservation", permission, result }));
+        lock (gate) return Native.Read<Observation>(Call(new Command.RecordObservation("recordObservation", permission, result)));
     }
 
     public PermissionOperationResult? Get(PermissionDescriptor permission)
@@ -63,14 +63,14 @@ public sealed class PermissionStore : IDisposable
     {
         lock (gate)
         {
-            var value = Call(new { op = "begin", permission }).GetProperty("token");
+            var value = Call(new Command.WithPermission("begin", permission)).GetProperty("token");
             return value.ValueKind == JsonValueKind.Null ? null : value.GetUInt64();
         }
     }
     public PermissionApplyOutcome Apply(IEnumerable<PermissionUpdate> updates, bool cancelled = false)
     {
         var values = CaptureBatch(updates);
-        lock (gate) return Native.Read<PermissionApplyOutcome>(Call(new { op = "apply", updates = values, cancelled }));
+        lock (gate) return Native.Read<PermissionApplyOutcome>(Call(new Command.Apply("apply", values, cancelled)));
     }
     public PermissionSnapshot Snapshot
     {
@@ -93,7 +93,7 @@ public sealed class PermissionStore : IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         RefreshAdmission[] admissions;
-        lock (gate) admissions = Native.Read<RefreshAdmission[]>(Call(new { op = "admitAllRefreshes" }));
+        lock (gate) admissions = Native.Read<RefreshAdmission[]>(Call(new Command.Simple("admitAllRefreshes")));
         try
         {
             var updates = await Task.WhenAll(admissions.Select(async admission =>
@@ -140,14 +140,8 @@ public sealed class PermissionStore : IDisposable
         lock (gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            admission = Native.Read<ScopedAdmission>(Call(new
-            {
-                op = "admitScoped",
-                permission,
-                options = options ?? PermissionOptions.None,
-                kind,
-                cancelled = false
-            }));
+            admission = Native.Read<ScopedAdmission>(Call(new Command.AdmitScoped(
+                "admitScoped", permission, options ?? PermissionOptions.None, kind, Cancelled: false)));
             switch (admission.Kind)
             {
                 case AdmissionKind.Untracked:
@@ -183,25 +177,25 @@ public sealed class PermissionStore : IDisposable
         }
     }
 
-    private PermissionSnapshot ReadSnapshot() => Native.Read<PermissionSnapshot>(Call(new { op = "snapshot" }));
+    private PermissionSnapshot ReadSnapshot() => Native.Read<PermissionSnapshot>(Call(new Command.Simple("snapshot")));
 
     private PermissionOperationResult? ReadStatus(PermissionDescriptor permission)
     {
-        var value = Call(new { op = "get", permission });
+        var value = Call(new Command.WithPermission("get", permission));
         return value.ValueKind == JsonValueKind.Null ? null : Native.Read<PermissionOperationResult>(value);
     }
 
     private void ApplyChecked(PermissionUpdate[] updates, CancellationToken cancellationToken)
     {
         var cancelled = cancellationToken.IsCancellationRequested;
-        Call(new { op = "apply", updates, cancelled });
+        Call(new Command.Apply("apply", updates, cancelled));
         if (cancelled) cancellationToken.ThrowIfCancellationRequested();
     }
 
     private void Finish(ulong token)
     {
         // Disposal already destroys all work.
-        if (!disposed) Call(new { op = "finish", token });
+        if (!disposed) Call(new Command.Finish("finish", token));
     }
 
     public void Dispose()

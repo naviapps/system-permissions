@@ -40,7 +40,7 @@ public sealed class PermissionChecker(IPermissionEnvironment environment) : IPer
         try { options = PermissionContract.Validate(permission, options); }
         catch (PermissionContractException) { return PermissionSettingsResult.Failed(PermissionError.InvalidOptions); }
         var admission = Native.Read<SettingsAdmission>(
-            Native.Call(new { op = "admitSettings", permission, platform = environment.Platform, options }));
+            Native.Call(new Command.ForPlatform("admitSettings", permission, environment.Platform, options)));
         cancellationToken.ThrowIfCancellationRequested();
         if (admission.Result is { } completed) return completed;
         if (admission.Capability?.SystemSettingsURL is null)
@@ -50,9 +50,9 @@ public sealed class PermissionChecker(IPermissionEnvironment environment) : IPer
         return PermissionContract.Validate(result);
     }
 
-    private sealed record SettingsAdmission(PermissionCapability? Capability, PermissionSettingsResult? Result);
+    internal sealed record SettingsAdmission(PermissionCapability? Capability, PermissionSettingsResult? Result);
 
-    private sealed record AccessAdmission(PermissionOptions? Options, PermissionOperationResult? Result);
+    internal sealed record AccessAdmission(PermissionOptions? Options, PermissionOperationResult? Result);
 
     private async Task<PermissionOperationResult> Execute(PermissionDescriptor permission, PermissionOptions? options, bool request, CancellationToken cancellationToken)
     {
@@ -62,7 +62,7 @@ public sealed class PermissionChecker(IPermissionEnvironment environment) : IPer
         try { validatedOptions = PermissionContract.Validate(permission, options ?? PermissionOptions.None); }
         catch (PermissionContractException) { return PermissionOperationResult.Failed(PermissionError.InvalidOptions); }
         var admission = Native.Read<AccessAdmission>(Native.Call(
-            new { op = "admitAccess", permission, platform = environment.Platform, request, options = options is null ? null : validatedOptions }));
+            new Command.AdmitAccess("admitAccess", permission, environment.Platform, request, options is null ? null : validatedOptions)));
         cancellationToken.ThrowIfCancellationRequested();
         if (admission.Result is { } completed) return completed;
         var effectiveOptions = admission.Options ?? throw new PermissionContractException("Missing admitted options.", "invalidResult");

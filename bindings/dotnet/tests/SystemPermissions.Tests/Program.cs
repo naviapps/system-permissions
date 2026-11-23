@@ -5,15 +5,13 @@ using NaviApps.SystemPermissions.Windows;
 // Observe apply serialization after the store has sampled the cancellation token.
 Action? onUpdateSerialization = null;
 Action? onDescriptorSerialization = null;
-var resolver = new DefaultJsonTypeInfoResolver();
-resolver.Modifiers.Add(info =>
+Native.Json.TypeInfoResolver = Native.Json.TypeInfoResolver!.WithAddedModifier(info =>
 {
     if (info.Type == typeof(PermissionUpdate))
         info.OnSerializing = _ => Interlocked.Exchange(ref onUpdateSerialization, null)?.Invoke();
     if (info.Type == typeof(PermissionDescriptor))
         info.OnSerializing = _ => onDescriptorSerialization?.Invoke();
 });
-Native.Json.TypeInfoResolver = resolver;
 NotificationOptionsContractTests.Run();
 await PermissionCheckerCancellationTests.RunAsync();
 await PermissionStatusObserverTests.RunAsync();
