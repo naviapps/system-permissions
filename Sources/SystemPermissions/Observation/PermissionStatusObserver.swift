@@ -241,8 +241,8 @@ private enum PermissionStatusObservation {
 
   static func prepare(_ types: [PermissionType]) throws -> Prepared? {
     guard !types.isEmpty, !Task.isCancelled else { return nil }
-    let state = try PermissionState(types: types)
-    let tracked = try state.snapshot().values.map { try PermissionType(descriptor: $0.permission) }
+    let (state, snapshot) = try PermissionState.tracking(types)
+    let tracked = try snapshot.values.map { try PermissionType(validatedDescriptor: $0.permission) }
     return (state, tracked)
   }
 

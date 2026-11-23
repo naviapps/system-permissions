@@ -162,9 +162,12 @@ impl Store {
     }
 
     fn index(&self, permission: &Descriptor) -> Result<Option<usize>, Error> {
-        let permission = permission.validated()?;
+        self.validated_index(&permission.validated()?)
+    }
+
+    fn validated_index(&self, permission: &Descriptor) -> Result<Option<usize>, Error> {
         match self.indices.get(&permission.identity()).copied() {
-            Some(index) if self.entries[index].permission != permission => {
+            Some(index) if self.entries[index].permission != *permission => {
                 Err(Error::InconsistentMetadata)
             }
             index => Ok(index),
@@ -229,7 +232,7 @@ impl Store {
         let Some(index) = self.index(permission)? else {
             return Ok(ScopedAdmission::Untracked);
         };
-        match options.validate_for(&self.entries[index].permission) {
+        match options.validate_for_validated(&self.entries[index].permission) {
             Err(Error::InvalidOptions) => return Ok(ScopedAdmission::InvalidOptions),
             result => result?,
         }
@@ -329,7 +332,7 @@ impl Store {
             if !seen.insert(permission.identity()) {
                 return Err(Error::DuplicateUpdate);
             }
-            if let Some(index) = self.index(&permission)?
+            if let Some(index) = self.validated_index(&permission)?
                 && self.entries[index].token == Some(update.token)
             {
                 pending.push((index, update.result.clone()));

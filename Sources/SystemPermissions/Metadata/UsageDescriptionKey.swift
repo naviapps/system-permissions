@@ -9,7 +9,7 @@ public struct UsageDescriptionKey: RawRepresentable, Codable, CaseIterable, Hash
     self = key
   }
 
-  private init(validatedValue: String) {
+  init(validatedValue: String) {
     rawValue = validatedValue
   }
 

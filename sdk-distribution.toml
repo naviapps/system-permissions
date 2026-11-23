@@ -3,22 +3,11 @@ commands = [
   ["xcrun", "swift", "--version"],
   ["cargo", "fetch", "--locked"],
   ["make", "check-distribution", "test-installed-consumers"],
-  ["python3", "-I", "-B", "{tooling}/tasks/sdk", "swift-consumer", "--distribution"],
+  ["sdk-tooling", "swift-consumer", "--distribution"],
 ]
 
 [windows]
 commands = [
-  [
-    "python",
-    "-I",
-    "-B",
-    "{tooling}/tasks/sdk",
-    "python",
-    "-m",
-    "unittest",
-    "discover",
-    "-s",
-    "fixtures/distribution/tests",
-  ],
-  ["python", "-I", "-B", "{tooling}/tasks/sdk", "windows", "fixtures/distribution/windows.py"],
+  ["sdk-tooling", "python", "-m", "unittest", "discover", "-s", "fixtures/distribution/tests"],
+  ["sdk-tooling", "windows", "fixtures/distribution/windows.py"],
 ]

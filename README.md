@@ -290,10 +290,10 @@ mise exec -- cargo fetch --locked
 mise exec -- make check
 ```
 
-`make check` runs source lint, Rust tests and Clippy, strict Swift tests and an
-external Swift consumer against the tracked framework. It also runs the managed
-notification-options test. The Cargo fetch primes the cache for the locked
-offline checks. The checks use synthetic effects.
+`make check` runs source lint, Rust tests and Clippy, and the Swift and .NET
+binding suites against the tracked framework. It also runs an external Swift
+consumer. The Cargo fetch primes the cache for the locked offline checks.
+The checks use synthetic effects.
 
 ### Distribution verification
 
@@ -315,9 +315,9 @@ gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
   -f sdk=system-permissions -f revision="$SDK_COMMIT_SHA"
 ```
 
-`make check-distribution` verifies the tracked framework and runs C ownership,
-managed fixtures and a clean local NuGet consumer. Use `mise exec -- make native`
-when the framework needs rebuilding.
+`make check-distribution` verifies the tracked framework, builds both Swift API
+catalogs and tests C ownership, managed bindings and clean local NuGet
+consumption. Use `mise exec -- make native` when the framework needs rebuilding.
 
 `make test-consumer` builds and runs `fixtures/swift-consumer/` against a disposable
 SDK containing only `Package.swift`, `Sources`, `Tests`, `Artifacts` and `ThirdParty`.

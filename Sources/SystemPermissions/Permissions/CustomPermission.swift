@@ -38,10 +38,18 @@ public struct CustomPermission: Sendable, Hashable {
     if let error = Self.validationError(for: identifier) {
       throw error
     }
-    self.identifier = identifier
+    self.init(
+      validatedIdentifier: identifier, capability: capability,
+      usageDescriptionKeys: try UsageDescriptionKey.validated(usageDescriptionKeys.map(\.rawValue)))
+  }
+
+  init(
+    validatedIdentifier: String, capability: PermissionCapability,
+    usageDescriptionKeys: [UsageDescriptionKey]
+  ) {
+    identifier = validatedIdentifier
     self.capability = capability
-    self.usageDescriptionKeys = try UsageDescriptionKey.validated(
-      usageDescriptionKeys.map(\.rawValue))
+    self.usageDescriptionKeys = usageDescriptionKeys
   }
 
   /// Returns the first validation error for a custom identifier, or `nil` when valid.

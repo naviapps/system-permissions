@@ -1,4 +1,5 @@
 SDK_TOOLING ?= mise run sdk-tooling --
+MACOS_LIBRARY := $(CURDIR)/Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/CSystemPermissions
 
 .DEFAULT_GOAL := check
 SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
@@ -6,7 +7,7 @@ SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-error
 check: check-source test test-consumer
 
 check-source: lint test-rust test-managed
-check-distribution: native-verify test-bindings test-windows-fixtures
+check-distribution: native-verify test-bindings test-windows-fixtures docs
 lint:
 	mise run lint
 native:
@@ -34,4 +35,5 @@ format:
 	mise run format
 
 test-managed:
-	dotnet run --configuration Release --project bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj -- --notification-options-only
+	SYSTEM_PERMISSIONS_NATIVE_LIBRARY="$(MACOS_LIBRARY)" \
+		dotnet run --configuration Release --project bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj

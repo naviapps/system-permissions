@@ -25,7 +25,7 @@ mise exec -- make test-bindings
 This uses the tracked framework, runs C and managed fixtures and packs both
 projects into `build/bindings/packages/` for the current Mac architecture.
 
-On Windows 11 ARM64, build x64 from an ARM64 Command Prompt with native ARM64
+On Windows 11 ARM64, build x64 from an ARM64 PowerShell with native ARM64
 Python and Rust, the ARM64-hosted x64 MSVC toolset, and the x64 .NET SDK version
 pinned in `mise.toml`.
 Visual Studio supplies the cross-target compiler under `HostARM64\x64`.
@@ -35,23 +35,25 @@ Microsoft installs the x64 SDK in the `x64` subfolder alongside ARM64 .NET.
 On a VM Runner worker that was prepared with both SDKs, use its
 `ToolsRoot\dotnet-x64\dotnet.exe` for `DOTNET_BIN`.
 
-```batch
-set "DOTNET_BIN=%ProgramFiles%\dotnet\x64\dotnet.exe"
+From the SDK root, use a checkout of the SDK Tooling revision pinned in
+[`mise.toml`](../../mise.toml).
+
+```powershell
+$env:DOTNET_BIN = 'C:\Program Files\dotnet\x64\dotnet.exe'
 rustup target add x86_64-pc-windows-msvc
-mise run sdk-tooling -- python fixtures/distribution/windows.py
+python -I -B 'C:\source\sdk-tooling\tasks\sdk' python -m fixtures.distribution.windows
 ```
 
 The script selects ARM64-hosted x64 MSVC on an ARM64 worker and native x64 MSVC
 on an x64 worker. Keep `DOTNET_BIN` set to the absolute x64 executable on ARM64.
 
-The script places the package pair in `build/windows/win-x64/packages/`.
+The script places both packages and their receipt in `build/windows/win-x64/`.
 On ARM64, Windows executes the x64 Rust and C fixtures and the x64 .NET process
 through emulation. The C fixture, managed fixture and NuGet package use the
 same staged DLL. The receipt records its SHA-256, target, host, execution mode
 and SHA-256 hashes of the pinned distribution tooling.
-When `NAVI_CI_ARTIFACTS` is set, the x64 receipt and packages go in its
-`win-x64` subdirectory. Each x64 output publishes the package pair and receipt
-together after verification.
+When `NAVI_CI_ARTIFACTS` is set, it writes the verified pair and receipt directly
+into that directory's `win-x64` subdirectory.
 The public Windows x64 workflow runs Rust and managed binding tests. The
 SDK Tooling distribution workflow runs the full x64 package checks. The local
 command also supports x64 emulation on Windows ARM64.

@@ -16,8 +16,9 @@ public final class SystemPermissionsStore: ObservableObject {
     permissionChecker: any PermissionChecking = PermissionChecker()
   ) throws {
     self.permissionChecker = permissionChecker
-    state = try PermissionState(types: trackedTypes)
-    let initial = try Self.project(state)
+    let (state, snapshot) = try PermissionState.tracking(trackedTypes)
+    self.state = state
+    let initial = try Self.project(snapshot)
     self.trackedTypes = initial.map(\.0)
     results = Dictionary(uniqueKeysWithValues: initial)
   }
@@ -42,7 +43,7 @@ public final class SystemPermissionsStore: ObservableObject {
     let admissions = try state.admitAllRefreshes()
     return try await withAdmissions(admissions.map(\.token)) {
       let requests = try admissions.map {
-        (try PermissionType(descriptor: $0.permission), $0.token)
+        (try PermissionType(validatedDescriptor: $0.permission), $0.token)
       }
       return try await withThrowingTaskGroup(
         of: (PermissionType, UInt64, PermissionOperationResult<PermissionStatus>)?.self
@@ -179,17 +180,17 @@ public final class SystemPermissionsStore: ObservableObject {
     guard !Task.isCancelled, try state.apply(updates.map { ($0.0, $0.1, $0.2.validatedForState()) })
     else { return }
     // A failed projection must not publish a partial dictionary as a permission change.
-    let updated = Dictionary(uniqueKeysWithValues: try Self.project(state))
+    let updated = Dictionary(uniqueKeysWithValues: try Self.project(state.snapshot()))
     guard updated != results else { return }
     objectWillChange.send()
     results = updated
   }
 
-  private static func project(_ state: PermissionState) throws
+  private static func project(_ snapshot: PermissionState.Snapshot) throws
     -> [(PermissionType, PermissionOperationResult<PermissionStatus>)]
   {
-    try state.snapshot().values.map {
-      (try PermissionType(descriptor: $0.permission), $0.result)
+    try snapshot.values.map {
+      (try PermissionType(validatedDescriptor: $0.permission), $0.result)
     }
   }
 }

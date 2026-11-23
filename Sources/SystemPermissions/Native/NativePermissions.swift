@@ -55,19 +55,17 @@ package enum NativePermissions {
 
 /// Rust-owned generations and commits. The adapter owns scheduling and UI projection only.
 package final class PermissionState {
-  private final class Handle {
-    let pointer: OpaquePointer
-    init() throws {
-      guard let pointer = system_permissions_store_new() else {
-        throw NativePermissions.Failure(
-          code: "unavailable", message: "Native permission store allocation failed.")
-      }
-      self.pointer = pointer
+  private let owner: OpaquePointer
+
+  private init() throws {
+    guard let owner = system_permissions_store_new() else {
+      throw NativePermissions.Failure(
+        code: "unavailable", message: "Native permission store allocation failed.")
     }
-    deinit { system_permissions_store_free(pointer) }
+    self.owner = owner
   }
-  private let handle: Handle
-  private var owner: OpaquePointer { handle.pointer }
+
+  deinit { system_permissions_store_free(owner) }
 
   package struct Entry: Decodable {
     package let permission: PermissionDescriptor
@@ -96,14 +94,16 @@ package final class PermissionState {
   private struct Finished: Decodable { let finished: Bool }
   private struct Applied: Decodable {
     let changed: Bool
-    let accepted: Int
   }
 
-  package init(types: [PermissionType]) throws {
-    handle = try Handle()
-    let _: Snapshot = try call([
+  package static func tracking(_ types: [PermissionType]) throws
+    -> (state: PermissionState, snapshot: Snapshot)
+  {
+    let state = try PermissionState()
+    let snapshot: Snapshot = try state.call([
       "op": "track", "permissions": types.map { try NativePermissions.object($0.descriptor) },
     ])
+    return (state, snapshot)
   }
 
   package func admitScoped(

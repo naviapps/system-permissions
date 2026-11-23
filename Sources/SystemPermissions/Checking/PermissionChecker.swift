@@ -59,6 +59,7 @@ public struct PermissionChecker: PermissionChecking {
           "options": NativePermissions.object(options),
         ], as: AccessAdmission.self)
     else { return .failed(.invalidOptions) }
+    guard !Task.isCancelled else { return .supported(.unknown) }
     if let completed = admission.result { return completed }
     guard let options = admission.options else { return .failed(.invalidOptions) }
     let result = await effect(options)

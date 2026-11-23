@@ -3,7 +3,7 @@ import Foundation
 package struct PermissionDescriptor: Codable {
   package struct Custom: Codable {
     let capability: PermissionCapability
-    let usageDescriptionKeys: [UsageDescriptionKey]
+    let usageDescriptionKeys: [String]
   }
   let id: String
   let targetApplication: String?
@@ -19,25 +19,21 @@ extension PermissionType: Codable {
       PermissionDescriptor(
         id: value.identifier, targetApplication: nil,
         custom: .init(
-          capability: value.capability, usageDescriptionKeys: value.usageDescriptionKeys))
+          capability: value.capability,
+          usageDescriptionKeys: value.usageDescriptionKeys.map(\.rawValue)))
     default:
       PermissionDescriptor(id: id, targetApplication: nil, custom: nil)
     }
   }
 
-  package init(descriptor: PermissionDescriptor) throws {
-    let validated: PermissionDescriptor = try NativePermissions.call([
-      "op": "validateDescriptor", "permission": NativePermissions.object(descriptor),
-    ])
-    try self.init(validatedDescriptor: validated)
-  }
-
-  private init(validatedDescriptor validated: PermissionDescriptor) throws {
+  /// Projects a descriptor already validated and canonicalized by the Rust contract.
+  package init(validatedDescriptor validated: PermissionDescriptor) throws {
     if let custom = validated.custom {
       self = .custom(
-        try CustomPermission(
-          identifier: validated.id, capability: custom.capability,
-          usageDescriptionKeys: custom.usageDescriptionKeys))
+        CustomPermission(
+          validatedIdentifier: validated.id, capability: custom.capability,
+          usageDescriptionKeys: custom.usageDescriptionKeys.map(
+            UsageDescriptionKey.init(validatedValue:))))
     } else if validated.id == "automation", let target = validated.targetApplication {
       self = .automation(targetApplication: target)
     } else if let type = Self.builtIn.first(where: { $0.id == validated.id }) {

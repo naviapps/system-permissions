@@ -15,12 +15,7 @@ resolver.Modifiers.Add(info =>
 });
 Native.Json.TypeInfoResolver = resolver;
 NotificationOptionsContractTests.Run();
-if (args is ["--notification-options-only"])
-{
-    Console.WriteLine("Shared notification option fixture passed without native calls.");
-    return;
-}
-
+await PermissionCheckerCancellationTests.RunAsync();
 await PermissionStatusObserverTests.RunAsync();
 
 static void Check(bool condition, string message)

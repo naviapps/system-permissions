@@ -1,18 +1,15 @@
 """Exercise Windows host selection, child commands and receipts using owned fixtures."""
 
 import hashlib
-import importlib
 import json
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-windows = importlib.import_module("windows")
+from fixtures.distribution import windows
 
 
 def write_pe(path, machine):
@@ -56,20 +53,13 @@ class CrossEnvironmentTests(unittest.TestCase):
 
 
 class BuildRouteTests(unittest.TestCase):
-    def test_rejects_an_arm64_output_before_detecting_the_host(self):
-        with (
-            patch.object(windows, "load") as load,
-            patch.object(sys, "stderr"),
-            self.assertRaises(SystemExit) as rejected,
-        ):
-            windows.main(["--architecture", "arm64"])
-        self.assertEqual(rejected.exception.code, 2)
-        load.assert_not_called()
-
-    def test_x64_is_the_default_target_on_both_hosts(self):
+    def test_x64_is_the_target_on_both_hosts(self):
         for host in ("arm64", "x64"):
             with self.subTest(host=host):
                 self.check_route(host)
+
+    def test_local_publish_flattens_the_legacy_package_pair(self):
+        self.check_route("x64", use_artifact_root=False)
 
     def test_refuses_to_publish_after_sdk_tool_inputs_change(self):
         self.check_route("arm64", change_inputs=True)
@@ -104,7 +94,6 @@ class BuildRouteTests(unittest.TestCase):
                 windows.publish_x64(
                     root,
                     output,
-                    output,
                     {"packages": {"fixture.nupkg": "digest"}},
                     bindings,
                     artifacts,
@@ -124,6 +113,7 @@ class BuildRouteTests(unittest.TestCase):
         change_staged=False,
         change_inputs=False,
         fixture_machine=0x8664,
+        use_artifact_root=True,
     ):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
@@ -145,15 +135,23 @@ class BuildRouteTests(unittest.TestCase):
                 (libdir / "libstd-fixture.rlib").touch()
             tools = root / "msvc"
             dotnet = str(root / "dotnet.exe")
-            evidence = root / "evidence"
-            env = {"CARGO_ENCODED_RUSTFLAGS": "", "PATH": "", "NAVI_CI_ARTIFACTS": str(evidence)}
+            artifact_root = root / "evidence"
+            env = {"CARGO_ENCODED_RUSTFLAGS": "", "PATH": ""}
+            if use_artifact_root:
+                env["NAVI_CI_ARTIFACTS"] = str(artifact_root)
             environment = env, tools, dotnet
-            output = root / "build/windows" / rid
-            evidence /= rid
+            build_root = root / "build/windows"
+            destination = (artifact_root if use_artifact_root else build_root) / rid
             (root / library.name).write_bytes(b"stale DLL outside the fixture")
             payload = b"package fixture"
             write_failure = False
             package_names = ("Permission.0.1.0.nupkg", "Permission.Windows.0.1.0.nupkg")
+            if not use_artifact_root:
+                legacy = destination / "packages"
+                legacy.mkdir(parents=True)
+                for name in package_names:
+                    (destination / name).write_bytes(b"previous package")
+                    (legacy / name).write_bytes(b"previous package")
 
             def compile_fixture(*_args, output, **_kwargs):
                 write_pe(output, fixture_machine)
@@ -191,7 +189,7 @@ class BuildRouteTests(unittest.TestCase):
                 for name, digest in data["packages"].items():
                     copied = (path.parent / name).read_bytes()
                     self.assertEqual(hashlib.sha256(copied).hexdigest(), digest)
-                if write_failure and path.is_relative_to(evidence.parent):
+                if write_failure:
                     raise OSError("Fixture receipt write failed")
                 path.write_text(json.dumps(data), encoding="utf-8")
 
@@ -207,8 +205,6 @@ class BuildRouteTests(unittest.TestCase):
             artifacts_tools.write_json.side_effect = report_fixture
             cargo_tools = Mock()
             native_tools = Mock(DARWIN_TARGETS=("aarch64-apple-darwin", "x86_64-apple-darwin"))
-            sdk_bindings = Mock()
-            sdk_bindings.pack_and_consume.side_effect = pack_fixture
             compiler = "rustc 1.99.1 (fixture)"
             info = f"{compiler}\nhost: {support.MSVC_TARGETS[host]}\n"
             outputs = {
@@ -235,7 +231,7 @@ class BuildRouteTests(unittest.TestCase):
                     side_effect=lambda args, **_: outputs[tuple(args)],
                 ),
                 patch.object(windows.subprocess, "run", side_effect=run_fixture) as run,
-                patch.dict(sys.modules, {"bindings": sdk_bindings}),
+                patch.object(windows, "pack_and_consume", side_effect=pack_fixture) as pack,
                 patch.dict(os.environ, {"DOTNET_HOST_PATH": "other architecture"}),
                 patch("builtins.print") as report,
             ):
@@ -254,49 +250,40 @@ class BuildRouteTests(unittest.TestCase):
                         all(Path(call.args[0][0]).name != "abi.exe" for call in run.call_args_list)
                     )
                     bindings_tools.run_managed.assert_not_called()
-                    sdk_bindings.pack_and_consume.assert_not_called()
+                    pack.assert_not_called()
                     artifacts_tools.publish.assert_not_called()
                     return
                 if change_staged:
                     with self.assertRaisesRegex(ValueError, "staged Windows DLL changed"):
                         windows.main([])
                     artifacts_tools.publish.assert_not_called()
-                    self.assertFalse(evidence.exists())
-                    self.assertFalse(output.exists())
+                    self.assertFalse(destination.exists())
                     return
                 if change_inputs:
                     with self.assertRaisesRegex(ValueError, "SDK tool inputs changed"):
                         windows.main([])
-                    sdk_bindings.pack_and_consume.assert_called_once()
+                    pack.assert_called_once()
                     artifacts_tools.publish.assert_not_called()
                     return
                 windows.main([])
                 if retry:
-                    receipt = evidence / "system-permissions-windows.json"
+                    receipt = destination / "system-permissions-windows.json"
                     previous_receipt = receipt.read_bytes()
-                    local_receipt = output / "system-permissions-windows.json"
-                    previous_local = local_receipt.read_bytes()
                     payload = b"package rebuilt on retry"
                     write_failure = True
                     with self.assertRaisesRegex(OSError, "Fixture receipt write failed"):
                         windows.main([])
                     self.assertEqual(receipt.read_bytes(), previous_receipt)
-                    self.assertEqual(local_receipt.read_bytes(), previous_local)
                     for name in package_names:
-                        self.assertEqual((evidence / name).read_bytes(), b"package fixture")
-                        self.assertEqual(
-                            (output / "packages" / name).read_bytes(), b"package fixture"
-                        )
+                        self.assertEqual((destination / name).read_bytes(), b"package fixture")
                     write_failure = False
                     windows.main([])
                     self.assertEqual(
                         json.loads(receipt.read_bytes())["packages"],
                         dict.fromkeys(package_names, hashlib.sha256(payload).hexdigest()),
                     )
-                    self.assertEqual(receipt.read_bytes(), local_receipt.read_bytes())
                     for name in package_names:
-                        self.assertEqual((evidence / name).read_bytes(), payload)
-                        self.assertEqual((output / "packages" / name).read_bytes(), payload)
+                        self.assertEqual((destination / name).read_bytes(), payload)
                     return
             cargo_tools.runtime_notices.assert_called_once_with(root, env)
             cargo_tools.CargoDependencies.assert_called_once_with(
@@ -314,10 +301,17 @@ class BuildRouteTests(unittest.TestCase):
             commands = [call.args[0] for call in run.call_args_list]
             fixture = Path(commands[-1][0])
             self.assertEqual(fixture.name, "abi.exe")
-            self.assertEqual(fixture.parent.parent, output.parent)
+            self.assertEqual(fixture.parent.parent, build_root)
             self.assertFalse(fixture.parent.exists())
-            self.assertEqual({entry.name for entry in output.parent.iterdir()}, {rid})
-            self.assertEqual({entry.name for entry in evidence.parent.iterdir()}, {rid})
+            self.assertEqual(
+                {entry.name for entry in build_root.iterdir()},
+                {"native.lock"} if use_artifact_root else {"native.lock", rid},
+            )
+            self.assertEqual(artifact_root.exists(), use_artifact_root)
+            self.assertEqual(
+                {entry.name for entry in destination.iterdir()},
+                {*package_names, "system-permissions-windows.json"},
+            )
             self.assertEqual(
                 [command[1] for command in commands if "--target" in command],
                 ["fetch", "clippy", "test", "build"],
@@ -339,10 +333,10 @@ class BuildRouteTests(unittest.TestCase):
             self.assertEqual(bindings_tools.run_managed.call_args.args[0], dotnet)
             self.assertEqual(env["SYSTEM_PERMISSIONS_NATIVE_LIBRARY"], str(accepted_copy))
             self.assertNotIn(str(library.parent), env["PATH"].split(os.pathsep))
-            sdk_bindings.pack_and_consume.assert_called_once_with(
+            pack.assert_called_once_with(
                 dotnet, accepted_copy, rid, env, fixture.parent, tooling=bindings_tools
             )
-            receipt = json.loads((evidence / "system-permissions-windows.json").read_bytes())
+            receipt = json.loads((destination / "system-permissions-windows.json").read_bytes())
             self.assertEqual(receipt["nativeSha256"], hashlib.sha256(accepted_dll).hexdigest())
             self.assertEqual(receipt["target"], target)
             self.assertEqual(receipt["runtime"], rid)
@@ -355,7 +349,8 @@ class BuildRouteTests(unittest.TestCase):
                 f"Windows {rid} nonprompting acceptance passed on {host} "
                 f"({receipt['executionMode']})."
             )
-            self.assertEqual((evidence / "Permission.0.1.0.nupkg").read_bytes(), b"package fixture")
+            for name in package_names:
+                self.assertEqual((destination / name).read_bytes(), payload)
 
     def test_package_verification_rejects_changed_bytes(self):
         with tempfile.TemporaryDirectory() as directory:

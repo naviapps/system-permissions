@@ -63,6 +63,7 @@ public sealed class PermissionChecker(IPermissionEnvironment environment) : IPer
         catch (PermissionContractException) { return PermissionOperationResult.Failed(PermissionError.InvalidOptions); }
         var admission = Native.Read<AccessAdmission>(Native.Call(
             new { op = "admitAccess", permission, platform = environment.Platform, request, options = options is null ? null : validatedOptions }));
+        cancellationToken.ThrowIfCancellationRequested();
         if (admission.Result is { } completed) return completed;
         var effectiveOptions = admission.Options ?? throw new PermissionContractException("Missing admitted options.", "invalidResult");
         var work = request

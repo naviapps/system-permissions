@@ -63,15 +63,12 @@ pub fn validate_identifier(id: &str) -> Option<IdentifierValidationError> {
     if !id.contains('.') {
         return Some(MissingNamespace);
     }
-    let segments: Vec<_> = id.split('.').collect();
-    if segments.iter().any(|s| s.is_empty()) {
+    let mut segments = id.split('.');
+    if segments.clone().any(str::is_empty) {
         return Some(EmptySegment);
     }
     let boundary = |b: u8| b.is_ascii_lowercase() || b.is_ascii_digit();
-    if segments
-        .iter()
-        .any(|s| !boundary(s.as_bytes()[0]) || !boundary(s.as_bytes()[s.len() - 1]))
-    {
+    if segments.any(|s| !boundary(s.as_bytes()[0]) || !boundary(s.as_bytes()[s.len() - 1])) {
         return Some(InvalidSegmentBoundary);
     }
     None

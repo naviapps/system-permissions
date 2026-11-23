@@ -51,46 +51,52 @@ fn access_status(value: i32) -> Status {
     }
 }
 
-fn preflight(permission: &Descriptor, options: &Options) -> Option<PermissionResult> {
-    if options.validate_for(permission).is_err() {
-        return Some(failed(OperationError::InvalidOptions));
+fn preflight(permission: &Descriptor, options: &Options) -> Result<&'static str, PermissionResult> {
+    if let Some(name) = capability_name(permission) {
+        return options
+            .validate_for(permission)
+            .map(|()| name)
+            .map_err(|_| failed(OperationError::InvalidOptions));
     }
-    if capability_name(permission).is_none() {
-        return Some(unsupported(permission, options));
-    }
-    None
-}
-
-fn unsupported(permission: &Descriptor, options: &Options) -> PermissionResult {
-    match metadata(permission, Platform::Windows, Some(options)) {
-        Ok(value) => PermissionResult::Unsupported {
-            capability: value.capability,
+    Err(
+        match metadata(permission, Platform::Windows, Some(options)) {
+            Ok(value) => PermissionResult::Unsupported {
+                capability: value.capability,
+            },
+            Err(_) => failed(OperationError::InvalidOptions),
         },
-        Err(_) => failed(OperationError::InvalidOptions),
-    }
+    )
 }
 
 /// Nonprompting privacy status for the current process only.
 pub fn status(permission: &Descriptor, options: &Options) -> PermissionResult {
-    if let Some(result) = preflight(permission, options) {
-        return result;
-    }
+    let name = match preflight(permission, options) {
+        Ok(name) => name,
+        Err(result) => return result,
+    };
     #[cfg(windows)]
-    return native::status(capability_name(permission).expect("preflight"));
+    return native::status(name);
     #[cfg(not(windows))]
-    failed(OperationError::ApiUnavailable)
+    {
+        let _ = name;
+        failed(OperationError::ApiUnavailable)
+    }
 }
 
 /// Explicit user request. Call on the application's existing STA UI thread.
 /// A pending token must be polled until complete or cancelled, including on host disposal.
 pub fn request(permission: &Descriptor, options: &Options) -> RequestStart {
-    if let Some(result) = preflight(permission, options) {
-        return RequestStart::Complete(result);
-    }
+    let name = match preflight(permission, options) {
+        Ok(name) => name,
+        Err(result) => return RequestStart::Complete(result),
+    };
     #[cfg(windows)]
-    return native::request(capability_name(permission).expect("preflight"));
+    return native::request(name);
     #[cfg(not(windows))]
-    RequestStart::Complete(failed(OperationError::ApiUnavailable))
+    {
+        let _ = name;
+        RequestStart::Complete(failed(OperationError::ApiUnavailable))
+    }
 }
 
 /// Returns None only while a valid owned request is in progress. Completion consumes it.
