@@ -271,8 +271,6 @@ Rust tests cover the full metadata, access, option validation and store ordering
 contracts. Binding tests exercise typed values and errors across the native
 boundary, installed package consumption, async cancellation and native effects.
 
-Developer commands use the build support included in this repository.
-
 Use Rust 1.99.1 and .NET 10 with repository/task-specific tool selection. Rebuild
 native artifacts after Rust, header, native build or upstream-notice changes.
 `Artifacts/native-build.json` binds those inputs to the tracked framework. Required
@@ -290,11 +288,33 @@ mise exec -- cargo fetch --locked
 mise exec -- make check
 ```
 
-`make check` verifies the existing framework and runs Rust, Swift, C ownership,
-managed fixtures, a clean local NuGet consumer and an external Swift consumer.
-The Cargo fetch primes the cache for the offline build and check targets. The
-checks execute native code without rebuilding the framework or requesting OS
-permissions. Use `mise exec -- make native` when the framework needs rebuilding.
+`make check` runs source lint, Rust tests and Clippy, strict Swift tests and an
+external Swift consumer against the tracked framework. It also runs the managed
+notification-options test. The Cargo fetch primes the cache for the locked
+offline checks. The checks use synthetic effects.
+
+### Distribution verification
+
+The distribution checks use the private `naviapps/sdk-tooling` repository. For
+local maintainer checks, prepare a clean SDK Tooling checkout at the commit in
+[`tools/tooling-sources.json`](tools/tooling-sources.json) and set its absolute path:
+
+```sh
+export NAVI_SDK_TOOLING_SOURCE=/path/to/sdk-tooling
+mise exec -- make check-distribution
+```
+
+To run the hosted macOS and Windows distribution checks, set `SDK_COMMIT_SHA`
+to the full SDK commit SHA from `main` and dispatch the workflow:
+
+```sh
+gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
+  -f sdk=system-permissions -f revision="$SDK_COMMIT_SHA"
+```
+
+`make check-distribution` verifies the tracked framework and runs C ownership,
+managed fixtures and a clean local NuGet consumer. Use `mise exec -- make native`
+when the framework needs rebuilding.
 
 `make test-consumer` builds and runs `fixtures/swift-consumer/` against a disposable
 SDK containing only `Package.swift`, `Sources`, `Tests`, `Artifacts` and `ThirdParty`.
@@ -306,9 +326,9 @@ invalid Automation target must fail before provider dispatch. Every checker is
 explicitly injected; no live permission query, request or Settings operation runs.
 The consumer check isolates SwiftPM configuration, caches and build output,
 excludes Rust and developer tools, and uses the tracked framework without rebuilding
-it. `--git-config` and `--mirror-config` accept explicit private dependency policy.
-This source/artifact gate runs in the macOS workflow on pushes to `main`, pull
-requests and manual runs. It uses synthetic effects.
+it. Pass `--distribution` to `tools/consumer.py` for the full dependency graph
+check. `--git-config` and `--mirror-config` select explicit dependency settings
+for that mode.
 
 `mise exec -- make test-installed-consumers` runs the independent Rust Git and
 installed C clients on macOS with the pinned toolchain available from the
@@ -316,7 +336,8 @@ temporary consumer directory. Both exercise notification options and rejection
 of mismatched input without permission requests or OS settings access. The Rust
 client resolves a fresh Cargo lock and may fetch public registry crates into an
 empty cache before it builds and runs offline. The gate checks each Git dependency
-against the declared sources and uses a copied framework. It runs in the macOS workflow.
+against the declared sources and uses a copied framework. SDK Tooling runs it
+in the macOS distribution job.
 
 From a shallow checkout, pass a complete local mirror or bundle that contains the
 exact SDK commit. The optional evidence path must be unused and outside the SDK
@@ -330,10 +351,10 @@ mise exec -- python3 -B tools/install-consumers.py \
 
 Default Swift tests use injected providers for requests and Settings opening. Live
 smoke tests only query nonprompting status. GitHub Actions runs the same strict
-Swift tests and standalone Swift consumer on macOS 26 and 27. The Xcode 27 and
-Windows x64 distribution jobs run the source, package and native consumer checks.
-Requests, system UI and Windows ARM64 emulation are tested separately in owned
-isolated fixtures.
+Swift tests and standalone Swift consumer on macOS 26 and 27. The public Windows
+x64 job runs Rust and managed binding tests. The SDK Tooling distribution jobs
+cover packages and native consumers. Use owned isolated fixtures for requests,
+system UI and Windows ARM64 emulation.
 
 This succeeds the local PermissionsKit integration. The old GitHub repository and
 its published source/history are unchanged. The host retains product-specific

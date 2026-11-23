@@ -15,7 +15,8 @@ macOS requires version 26 or later. The Windows adapter uses Windows 10 version
 .NET process under emulation.
 
 From the repository root, prepare the pinned tools described in the
-[developer setup](https://github.com/naviapps/system-permissions#development-and-verification).
+[developer setup](../../README.md#development-and-verification) and select the
+[distribution tooling checkout](../../README.md#distribution-verification).
 On macOS, run:
 
 ```sh
@@ -37,6 +38,7 @@ On a VM Runner worker that was prepared with both SDKs, use its
 
 ```batch
 set "DOTNET_BIN=%ProgramFiles%\dotnet\x64\dotnet.exe"
+set "NAVI_SDK_TOOLING_SOURCE=C:\path\to\sdk-tooling"
 rustup target add x86_64-pc-windows-msvc
 mise exec -- python -B tools/windows.py
 ```
@@ -48,12 +50,13 @@ The script places the package pair in `build/windows/win-x64/packages/`.
 On ARM64, Windows executes the x64 Rust and C fixtures and the x64 .NET process
 through emulation. The C fixture, managed fixture and NuGet package use the
 same staged DLL. The receipt records its SHA-256, target, host, execution mode
-and SHA-256 hashes of the checked-in build support.
+and SHA-256 hashes of the pinned distribution tooling.
 When `NAVI_CI_ARTIFACTS` is set, the x64 receipt and packages go in its
 `win-x64` subdirectory. Each x64 output publishes the package pair and receipt
 together after verification.
-The GitHub-hosted Windows workflow runs tool, Rust and packaged SDK tests on x64.
-The local command also supports x64 emulation on Windows ARM64.
+The public Windows x64 workflow runs Rust and managed binding tests. The
+SDK Tooling distribution workflow runs the full x64 package checks. The local
+command also supports x64 emulation on Windows ARM64.
 
 In a .NET 10 host project, point `LOCAL_PACKAGE_DIRECTORY` at that package folder
 or an approved private feed containing both packages:
