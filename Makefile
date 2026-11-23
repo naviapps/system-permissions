@@ -4,9 +4,9 @@ SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-error
 check: check-source test test-consumer
 
 check-source: lint test-rust test-managed
-check-distribution: lint test-rust native-verify test-bindings test-windows-tool
+check-distribution: native-verify test-bindings test-windows-tool
 lint:
-	mise exec -- python3 -B tools/quality.py check --dotnet
+	mise run lint
 native:
 	python3 tools/native.py
 native-verify:
@@ -14,9 +14,9 @@ native-verify:
 test:
 	swift test $(SWIFT_FLAGS)
 test-consumer:
-	python3 -B tools/consumer.py
+	mise run sdk-tooling -- swift-consumer
 test-installed-consumers:
-	python3 -B tools/install-consumers.py
+	mise run sdk-tooling -- installed-consumers
 test-rust:
 	cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 	cargo test --workspace --locked --offline
@@ -25,11 +25,11 @@ test-bindings:
 test-windows-tool:
 	python3 -B -m unittest discover -s tools/tests -v
 docs:
-	python3 tools/docs.py
+	mise run sdk-tooling -- docs
 
 .PHONY: format
 format:
-	mise exec -- python3 -B tools/quality.py format --dotnet
+	mise run format
 
 test-managed:
 	dotnet run --configuration Release --project bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj -- --notification-options-only

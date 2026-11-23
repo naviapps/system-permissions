@@ -295,9 +295,12 @@ offline checks. The checks use synthetic effects.
 
 ### Distribution verification
 
-The distribution checks use the private `naviapps/sdk-tooling` repository. For
-local maintainer checks, prepare a clean SDK Tooling checkout at the commit in
-[`tools/tooling-sources.json`](tools/tooling-sources.json) and set its absolute path:
+[SDK Tooling](https://github.com/naviapps/sdk-tooling) runs the shared checks.
+The `sdk-tooling` task in [`mise.toml`](mise.toml) pins its exact commit. The
+regular checks fetch that version automatically.
+
+For local distribution checks, prepare a clean SDK Tooling checkout at the
+same pin and set its absolute path for the SDK's native and packaging scripts:
 
 ```sh
 export NAVI_SDK_TOOLING_SOURCE=/path/to/sdk-tooling
@@ -326,7 +329,7 @@ invalid Automation target must fail before provider dispatch. Every checker is
 explicitly injected; no live permission query, request or Settings operation runs.
 The consumer check isolates SwiftPM configuration, caches and build output,
 excludes Rust and developer tools, and uses the tracked framework without rebuilding
-it. Pass `--distribution` to `tools/consumer.py` for the full dependency graph
+it. Run `mise run sdk-tooling -- swift-consumer --distribution` for the full dependency graph
 check. `--git-config` and `--mirror-config` select explicit dependency settings
 for that mode.
 
@@ -344,7 +347,7 @@ exact SDK commit. The optional evidence path must be unused and outside the SDK
 checkout:
 
 ```sh
-mise exec -- python3 -B tools/install-consumers.py \
+mise run sdk-tooling -- installed-consumers \
   --git-source /path/to/system-permissions.bundle \
   --evidence /path/to/new/installed-consumers.json
 ```

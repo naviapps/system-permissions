@@ -1,0 +1,13 @@
+[macos]
+commands = [
+  ["xcrun", "swift", "--version"],
+  ["cargo", "fetch", "--locked"],
+  ["make", "check-distribution", "test-installed-consumers"],
+  ["python3", "-I", "-B", "{tooling}/tasks/sdk", "swift-consumer", "--distribution"],
+]
+
+[windows]
+commands = [
+  ["python", "-E", "-S", "-B", "-m", "unittest", "discover", "-s", "tools/tests"],
+  ["python", "-I", "-B", "{tooling}/tasks/sdk", "windows", "tools/windows.py"],
+]
