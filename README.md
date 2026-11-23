@@ -269,8 +269,8 @@ neither Rust nor an SDK source checkout.
 .NET uses `NaviApps.SystemPermissions` for shared contracts/state and
 `NaviApps.SystemPermissions.Windows` for Windows integration. Standalone Windows
 builds produce `win-x64` native assets and local NuGet packages.
-See the [.NET guide](https://github.com/naviapps/system-permissions/blob/main/bindings/dotnet/README.md) for
-the ARM64-hosted x64 build, local package installation and managed usage.
+See the [.NET guide](bindings/dotnet/README.md) for local package installation,
+managed usage and the x64 build on Windows x64 and ARM64.
 
 ## Development and verification
 

@@ -8,15 +8,47 @@ update rejection are shared Rust behavior, not managed policy tables.
 
 ## Install
 
-Use .NET 10. The repository's scripts pack from a local checkout.
-The selected native asset is one of `osx-arm64`, `osx-x64` or `win-x64`.
-macOS requires version 26 or later. The Windows adapter uses Windows 10 version
-1903 or later APIs. On Windows 11 ARM64, run the installed package in an x64
-.NET process under emulation.
+Use .NET 10 and a verified local feed containing the package for your runtime.
+Use `osx-arm64` or `osx-x64` on macOS 26 or later, or `win-x64` on Windows.
+On Windows 11 ARM64, use the x64 .NET SDK to run the `win-x64` package under
+emulation. Consumers need only .NET and the packages.
+
+### Try the installed package
+
+In a new directory, replace `LOCAL_PACKAGE_DIRECTORY` with the absolute path
+to the verified feed. Use the .NET executable for the package's architecture
+for all four commands.
+
+```sh
+dotnet new console --framework net10.0 --no-restore
+dotnet package add NaviApps.SystemPermissions --version 0.1.0 --no-restore
+dotnet restore --source "LOCAL_PACKAGE_DIRECTORY" --packages .nuget-packages
+```
+
+Replace `Program.cs` with this portable check to verify that the native
+contract loads without querying the OS or changing permission state.
+
+```csharp
+using NaviApps.SystemPermissions;
+
+var camera = PermissionContract.DecodeDescriptorJson("{\"id\":\"camera\"}"u8);
+Console.WriteLine(camera == PermissionDescriptor.Camera);
+```
+
+```sh
+dotnet run --no-restore
+```
+
+The check prints `True`. Use `NaviApps.SystemPermissions.Windows` instead when the application uses
+the Windows adapter. The feed must contain both packages from the same build.
+Choose one build for each package ID and version. Local builds for different
+runtimes share a version, so use a fresh package cache when switching feeds or
+rebuilding a candidate. [NuGet package cache resolution](https://learn.microsoft.com/en-us/nuget/consume-packages/managing-the-global-packages-and-cache-folders).
+
+### Build packages on macOS
 
 From the repository root, prepare the pinned tools described in the
-[developer setup](../../README.md#development-and-verification).
-On macOS, run:
+[developer setup](../../README.md#development-and-verification), then run
 
 ```sh
 mise exec -- make test-bindings
@@ -25,20 +57,25 @@ mise exec -- make test-bindings
 This uses the tracked framework, runs C and managed fixtures and packs both
 projects into `build/bindings/packages/` for the current Mac architecture.
 
-On Windows 11 ARM64, build x64 from an ARM64 PowerShell with native ARM64
-Python and Rust, the ARM64-hosted x64 MSVC toolset, and the x64 .NET SDK version
-pinned in [`global.json`](../../global.json).
-Visual Studio supplies the cross-target compiler under `HostARM64\x64`.
-[ARM64 Visual Studio compiler paths](https://learn.microsoft.com/visualstudio/install/visual-studio-on-arm-devices).
-Microsoft installs the x64 SDK in the `x64` subfolder alongside ARM64 .NET.
-[Install .NET on Windows](https://learn.microsoft.com/dotnet/core/install/windows).
-On a VM Runner worker that was prepared with both SDKs, use its
-`ToolsRoot\dotnet-x64\dotnet.exe` for `DOTNET_BIN`.
+### Build packages on Windows
 
-From the SDK root, use the SDK Tooling task pinned in [`mise.toml`](../../mise.toml).
+Use an owned x64 or ARM64 Windows worker. Install the Rust version in
+[`rust-toolchain.toml`](../../rust-toolchain.toml) for the host architecture,
+the Visual Studio C++ tools for the x64 target and the x64 .NET SDK in
+[`global.json`](../../global.json). Configure `DOTNET_BIN` with its absolute path.
+On x64, the default path is `C:\Program Files\dotnet\dotnet.exe`. On ARM64,
+use native ARM64 PowerShell and Visual Studio with `HostARM64\x64` tools.
+The default x64 .NET path there is `C:\Program Files\dotnet\x64\dotnet.exe`.
+See [Visual Studio on ARM64](https://learn.microsoft.com/visualstudio/install/visual-studio-on-arm-devices)
+and [install .NET on Windows](https://learn.microsoft.com/dotnet/core/install/windows).
+
+Run from the SDK root with the appropriate .NET path. Review the repository's
+[`mise.toml`](../../mise.toml) before trusting it.
 
 ```powershell
-$env:DOTNET_BIN = 'C:\Program Files\dotnet\x64\dotnet.exe'
+$env:DOTNET_BIN = 'C:\Program Files\dotnet\dotnet.exe'
+mise trust mise.toml
+mise install python uv
 rustup target add x86_64-pc-windows-msvc
 mise run sdk-tooling -- windows distribution/verify_windows.py
 ```
@@ -58,18 +95,6 @@ hosted distribution check also installs an owned, temporary x64 MSIX to check
 package identity, nonprompting status, unsupported direct consent and Settings
 admission. The fixture removes its package and signing certificate after the test.
 The local command also supports x64 emulation on Windows ARM64.
-
-In a .NET 10 host project, point `LOCAL_PACKAGE_DIRECTORY` at that package folder
-or an approved private feed containing both packages:
-
-```sh
-dotnet add package NaviApps.SystemPermissions.Windows --version 0.1.0 --source "LOCAL_PACKAGE_DIRECTORY"
-```
-
-The Windows package brings in `NaviApps.SystemPermissions`. A host that only needs
-shared contracts and injected effects can reference `NaviApps.SystemPermissions`
-instead. Packages carry the native asset and required notices. The .NET runtime
-resolves the native asset after restore.
 
 ## Usage
 
