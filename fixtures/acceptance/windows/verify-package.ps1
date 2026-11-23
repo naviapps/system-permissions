@@ -50,7 +50,8 @@ foreach ($size in 44, 50, 150) {
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.26100.0" MaxVersionTested="10.0.26100.0"/>
   </Dependencies>
   <Applications>
-    <Application Id="Fixture" Executable="abi.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+    <Application Id="Fixture" Executable="abi.exe" uap10:RuntimeBehavior="packagedClassicApp"
+      uap10:TrustLevel="mediumIL" uap10:SupportsMultipleInstances="true">
       <uap:VisualElements DisplayName="SystemPermissions Test" Description="SDK package identity fixture"
         Square150x150Logo="Logo150.png" Square44x44Logo="Logo44.png" BackgroundColor="transparent"/>
       <Extensions>
