@@ -26,3 +26,6 @@ dotnet_diagnostic.IDE0052.severity = warning
 dotnet_diagnostic.IDE0059.severity = warning
 dotnet_diagnostic.IDE0060.severity = warning
 dotnet_code_quality_unused_parameters = non_public
+
+[*.ps1]
+indent_size = 4
