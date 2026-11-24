@@ -3,6 +3,8 @@
 /.native-build/
 /.swiftpm/
 /build/
+/crates/ffi/include/system_permissions.h
+/crates/ffi/module.modulemap
 .DS_Store
 **/bin/
 **/obj/

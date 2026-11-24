@@ -16,7 +16,7 @@ clean:
 	  bindings/dotnet/tests/SystemPermissions.Tests/bin bindings/dotnet/tests/SystemPermissions.Tests/obj
 lint:
 	mise run lint
-native: generate-header
+native:
 	$(SDK_TOOLING) xcframework
 native-verify: check-header
 	$(SDK_TOOLING) xcframework --verify

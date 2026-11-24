@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from sdk_tooling.adapters import load, support_inputs
+from sdk_tooling.c_headers import prepare_generated
 from sdk_tooling.native_plan import ffi_product
 from sdk_tooling.windows_delivery import (
     RID,
@@ -102,6 +103,7 @@ def main(argv=None):
         return source, values
 
     before = inputs()
+    prepare_generated(ROOT)
     native = ffi_product(ROOT)
     built = acceptance.build(native)
     native_root = ROOT / ".native-build"
@@ -112,12 +114,11 @@ def main(argv=None):
         candidate = Path(directory)
         library, import_library, native_receipt = acceptance.stage(native, built, candidate)
         fixture = candidate / "abi.exe"
-        includes = ROOT / "crates/ffi/include"
         load("c_compiler").compile_c(
             ROOT / "crates/ffi/tests/c/abi.c",
             output=fixture,
             compiler=[acceptance.tools / "cl.exe"],
-            include_dirs=[includes],
+            include_dirs=[ROOT / "crates/ffi/include"],
             libraries=[import_library],
             flags=("/MT",),
             style="msvc",

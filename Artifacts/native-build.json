@@ -1144,7 +1144,7 @@
         },
         "inputs": {
           "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
-          "crates/ffi/Cargo.toml": "c79e91ac0cf034ab4b7b07a3eb9571eaca6baa54f2f74b16322eab3b342d6214"
+          "crates/ffi/Cargo.toml": "fc2e4ef479ecfb86cfca7c74d2aac545e2018e9db819649afbf3dc38d2b98c69"
         },
         "name": "system-permissions-ffi",
         "source": "workspace",
@@ -1229,7 +1229,7 @@
       "Cargo.lock": "7c90522dc23027480cb83ae3264456bf5029c65ff498fcb38c47e0caf6f19c46",
       "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
       "crates/core/Cargo.toml": "8b13c6ae1afc100737926ad33452dbff2ff1c1cc2e89a47bfdca66424ae5b1b1",
-      "crates/ffi/Cargo.toml": "c79e91ac0cf034ab4b7b07a3eb9571eaca6baa54f2f74b16322eab3b342d6214",
+      "crates/ffi/Cargo.toml": "fc2e4ef479ecfb86cfca7c74d2aac545e2018e9db819649afbf3dc38d2b98c69",
       "rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33"
     }
   },
@@ -1308,7 +1308,7 @@
     "crates/core/src/model.rs": "774dc63a7a71ed39c4aaf5167eb5599ab8977096d9946a6c19b65ec30ef3f50d",
     "crates/core/src/store.rs": "09d55ce76b1d9812ce88c63141a1c0ac7590991db3ea6a56783f70014a8d81a8",
     "crates/core/src/wire.rs": "a1c05696a8cc1f59d9432362abd2a6dd9b4d23a04cbac1e94b0c84406e0f4a9e",
-    "crates/ffi/Cargo.toml": "c79e91ac0cf034ab4b7b07a3eb9571eaca6baa54f2f74b16322eab3b342d6214",
+    "crates/ffi/Cargo.toml": "fc2e4ef479ecfb86cfca7c74d2aac545e2018e9db819649afbf3dc38d2b98c69",
     "crates/ffi/include/system_permissions.h": "8d8647d295279001ff2fab5bfd9e576e1136bf962f9120b7278aa30ad1a7d041",
     "crates/ffi/module.modulemap": "9cd9a6b1300ffcc3e51c70f019acbfea7c385ac53e55ce1d05b32d40a9df3d9a",
     "crates/ffi/src/lib.rs": "0739a90f20b1b454888949adc12ad520e492c60c5b78eef6217a2458228e9417",

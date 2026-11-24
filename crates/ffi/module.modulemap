@@ -1,4 +1,0 @@
-framework module CSystemPermissions {
-  umbrella header "system_permissions.h"
-  export *
-}

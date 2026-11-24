@@ -171,6 +171,7 @@ class BuildRouteTests(unittest.TestCase):
                 patch.object(windows, "load", side_effect=scope.__getitem__),
                 patch.object(windows, "X64Acceptance", return_value=acceptance),
                 patch.object(windows, "ffi_product", return_value=Mock(version="0.1.0")),
+                patch.object(windows, "prepare_generated") as prepare,
                 patch.object(windows, "support_inputs", side_effect=(first, second)),
                 patch.object(windows, "acceptance_source", return_value=("a" * 40, None)),
                 patch.object(windows, "pack_and_consume", side_effect=pack) as installed,
@@ -195,6 +196,11 @@ class BuildRouteTests(unittest.TestCase):
                     return
                 windows.main(arguments)
 
+            prepare.assert_called_once_with(root)
+            self.assertEqual(
+                scope["c_compiler"].compile_c.call_args.kwargs["include_dirs"],
+                [root / "crates/ffi/include"],
+            )
             if export_native:
                 self.assertFalse(destination.exists())
                 self.assertEqual(

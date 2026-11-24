@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from sdk_tooling.adapters import load
+from sdk_tooling.c_headers import prepare_generated
 from sdk_tooling.check_options import select_dotnet_host
 from sdk_tooling.dotnet import subprocess_environment
 from sdk_tooling.native_plan import ffi_product
@@ -147,6 +148,7 @@ def main():
     )
     if not library.is_file():
         raise SystemExit("Build the tracked framework with make native first")
+    prepare_generated(ROOT)
     output = ROOT / "build/bindings"
     output.mkdir(parents=True, exist_ok=True)
     load("c_compiler").compile_c(

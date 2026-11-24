@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+from sdk_tooling.c_headers import prepare_generated
 from sdk_tooling.native_plan import ffi_product
 from sdk_tooling.nuget import pack_native, retained_notice_files
 from sdk_tooling.windows_delivery import RID
@@ -24,6 +25,7 @@ def main():
     )
     parser.add_argument("--result", type=Path, help="Write the package filename to a new file")
     args = parser.parse_args()
+    prepare_generated(ROOT)
     native = ffi_product(ROOT) if set(args.runtime) == {RID} else xcframework(ROOT)
     package = pack_native(
         native,

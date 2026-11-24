@@ -10,7 +10,7 @@ Start with [Swift](#swift), [Rust and C](#rust-c-and-net), or the
 
 | Path                                             | Contents                                                |
 | ------------------------------------------------ | ------------------------------------------------------- |
-| `crates/`                                        | Rust implementation and C API in `crates/ffi/include/`  |
+| `crates/`                                        | Rust implementation and C ABI definitions               |
 | `crates/ffi/tests/c/`                            | C ABI tests                                             |
 | `Sources/`, `Tests/`                             | Swift bindings and tests                                |
 | `bindings/dotnet/src/<project>/`                 | Named .NET source projects                              |
@@ -228,8 +228,8 @@ changing tracked results or ordering.
 ## Rust, C and .NET
 
 The `system-permissions` Rust crate has no OS side effects. The Windows crate
-provides native Windows operations. The C header at
-`crates/ffi/include/system_permissions.h` owns operation and memory contracts.
+provides native Windows operations. The [Rust FFI](crates/ffi/src/lib.rs) defines
+the operation and memory contracts published in `system_permissions.h`.
 Results own their bytes; copy borrowed views before releasing the result. Store
 calls serialize state access and do not call host code while holding a lock.
 Freeing a store requires exclusive ownership and no concurrent callers.
@@ -277,10 +277,12 @@ contracts. Binding tests exercise typed values and errors across the native
 boundary, installed package consumption, async cancellation and native effects.
 
 Use Rust 1.99.1 and .NET 10 with repository/task-specific tool selection. Rebuild
-native artifacts after Rust, header, native build or upstream-notice changes.
-`mise exec -- make native` regenerates the C header and module map from the
-Rust FFI. Source checks compare the generated files with the tracked copies.
-Installed C and Swift consumers use the bundled header.
+native artifacts after Rust, cbindgen configuration, native build or upstream-notice changes.
+`mise exec -- make generate-header` writes the C header in `crates/ffi/include/`
+and the module map in `crates/ffi/` for local use. Git ignores both files.
+`mise exec -- make native` builds the XCFramework and bundles those files.
+`mise exec -- make check-header` compares the bundled files with fresh output
+from the Rust FFI.
 [`native.toml`](native.toml) declares the build settings.
 `Artifacts/native-build.json` binds the build inputs to the tracked framework. Required
 upstream notices and Rust runtime provenance remain under `ThirdParty/`. The
@@ -343,7 +345,7 @@ Use an owned Windows x64 or ARM64 worker. Review [`mise.toml`](mise.toml) and
 install the host-native Rust version from
 [`rust-toolchain.toml`](rust-toolchain.toml), Visual Studio C++ tools for the
 x64 target, and the x64 .NET SDK from [`global.json`](global.json).
-On ARM64, use native ARM64 PowerShell and Visual Studio `HostARM64d`
+On ARM64, use native ARM64 PowerShell and Visual Studio `HostARM64`
 components. Set `DOTNET_BIN` to the absolute path of the x64 executable.
 The default on ARM64 is `C:\Program Files\dotnet\x64\dotnet.exe`.
 See [Visual Studio on ARM64](https://learn.microsoft.com/visualstudio/install/visual-studio-on-arm-devices)
@@ -355,7 +357,7 @@ path on an x64 host.
 ```powershell
 $env:DOTNET_BIN = 'C:\Program Files\dotnet\dotnet.exe'
 mise trust mise.toml
-mise install python uv
+mise install python uv "cargo:cbindgen"
 rustup target add x86_64-pc-windows-msvc
 mise run sdk-tooling -- windows distribution/verify_windows.py
 ```
