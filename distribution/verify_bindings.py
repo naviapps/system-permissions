@@ -68,7 +68,7 @@ def pack_and_consume(dotnet, library, rid, env, output):
             DOTNET / "src" / name / (name + ".csproj"),
             output=packages,
             cwd=ROOT,
-            env=dict(env, NUGET_PACKAGES=str(output / "adapter-restore")),
+            env=dict(env, NUGET_PACKAGES=str(output / "core-restore")),
             properties={"Version": version, **properties},
             nuget_config=DOTNET / "NuGet.Config",
             sources=sources,
