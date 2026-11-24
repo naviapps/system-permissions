@@ -3,10 +3,10 @@ MACOS_LIBRARY := $(CURDIR)/Artifacts/CSystemPermissions.xcframework/macos-arm64_
 
 .DEFAULT_GOAL := check
 SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
-.PHONY: check check-source test-managed check-distribution lint native native-verify test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools clean
+.PHONY: check check-source test-managed check-distribution lint native native-verify check-header generate-header test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools clean
 check: check-source test test-consumer
 
-check-source: lint test-rust test-managed
+check-source: lint check-header test-rust test-managed
 check-distribution: native-verify test-bindings test-distribution-tools
 clean:
 	$(SDK_TOOLING) clean .build target .native-build build/bindings build/windows \
@@ -16,10 +16,14 @@ clean:
 	  bindings/dotnet/tests/SystemPermissions.Tests/bin bindings/dotnet/tests/SystemPermissions.Tests/obj
 lint:
 	mise run lint
-native:
+native: generate-header
 	$(SDK_TOOLING) xcframework
-native-verify:
+native-verify: check-header
 	$(SDK_TOOLING) xcframework --verify
+check-header:
+	$(SDK_TOOLING) c-headers check
+generate-header:
+	$(SDK_TOOLING) c-headers generate
 test:
 	swift test $(SWIFT_FLAGS)
 test-consumer:

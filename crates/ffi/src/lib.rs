@@ -6,6 +6,9 @@ use std::sync::Mutex;
 
 mod windows;
 
+/// Native C ABI version.
+pub const SYSTEM_PERMISSIONS_ABI_VERSION: u32 = 2u32;
+
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Command {
@@ -49,7 +52,7 @@ fn contained(f: impl FnOnce() -> Result<serde_json::Value, Error>) -> *mut Syste
 
 #[unsafe(no_mangle)]
 pub extern "C" fn system_permissions_abi_version() -> u32 {
-    2
+    SYSTEM_PERMISSIONS_ABI_VERSION
 }
 
 unsafe fn input<'a>(data: *const u8, len: usize) -> Result<&'a [u8], Error> {
@@ -63,6 +66,48 @@ unsafe fn input<'a>(data: *const u8, len: usize) -> Result<&'a [u8], Error> {
     Ok(unsafe { std::slice::from_raw_parts(data, len) })
 }
 
+/// Dispatches a stateless request encoded as UTF-8 JSON, up to 1 MiB.
+///
+/// The result is owned. Status 0 holds success JSON. Status 1 holds
+/// `{"error":"typedCode",...}`. A valid `validateIdentifier` operation returns
+/// success even for an invalid identifier. Its value is
+/// `{"error":"validationReason"}` for an invalid identifier and `{}` otherwise.
+///
+/// Every request object includes an `op` containing the operation name.
+/// Permission descriptors, capabilities and update entries are JSON objects.
+/// Supported stateless operations and request fields follow.
+///
+/// - `metadata {platform,permission,options?}`
+/// - `validateDescriptor {permission}`
+/// - `validateOptions {permission,options}`
+/// - `allowsAccess {status}`
+/// - `resultAllowsAccess {result}` validates a status result before checking access.
+/// - `validateIdentifier {identifier}`
+/// - `builtIns`
+/// - `validateResult {result}`
+/// - `admitAccess {platform,permission,request:bool,options?}` returns `{options}` when
+///   admitted or `{result:status result}` for an unsupported or mismatched request.
+///   Omitted options use the platform default. No host provider is called.
+/// - `admitSettings {platform,permission,options?}` returns `{capability}` when
+///   a destination exists or `{result:boolean Settings result}` for an unsupported
+///   operation or options for a different permission. Admission returns a
+///   destination or result without opening Settings.
+/// - `validateSettingsResult {result}` checks a Settings result with a boolean supported value.
+/// - `storeBatchLimit` returns the advisory entry limit for track and apply arrays.
+///
+/// Core operations have no OS effects or implicit prompting. Explicit Windows
+/// operations run on the calling thread outside any store lock and are unavailable
+/// on other platforms. The operations are listed below.
+///
+/// - `windowsStatus {permission,options}` returns a status result.
+/// - `windowsRequest {permission,options}` returns `{result:status result}`.
+///   Desktop Windows reports direct requests as unsupported without calling the OS.
+/// - `windowsOpenSettings {permission,options}` returns a boolean Settings result.
+///   Calling it explicitly opens the Settings destination for a supported capability.
+///
+/// Panic unwinding is contained. Allocation exhaustion is subject to the process
+/// allocator and is not recoverable.
+///
 /// # Safety
 /// A nonnull input must remain readable for len bytes until this call returns.
 /// The returned result owns its bytes and must be freed once, after copying its view.
@@ -74,6 +119,8 @@ pub unsafe extern "C" fn system_permissions_call(
     contained(|| dispatch(unsafe { input(data, len)? }))
 }
 
+/// Reads the result status. A null result returns status 1.
+///
 /// # Safety
 /// Result is null or a live result allocated by this library.
 #[unsafe(no_mangle)]
@@ -86,9 +133,11 @@ pub unsafe extern "C" fn system_permissions_result_status(
     unsafe { (*result).status }
 }
 
+/// Borrows the result bytes. A null result returns a null pointer.
+///
 /// # Safety
-/// Result is null or live. Borrowed bytes are valid only until result_free;
-/// they are length-delimited and are not NUL-terminated.
+/// Result is null or live. Copy the length-delimited bytes before calling
+/// result_free. No NUL terminator is supplied.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn system_permissions_result_data(
     result: *const SystemPermissionsResult,
@@ -99,6 +148,8 @@ pub unsafe extern "C" fn system_permissions_result_data(
     unsafe { (*result).data.as_ptr() }
 }
 
+/// Reads the byte length. A null result returns zero.
+///
 /// # Safety
 /// Result is null or a live result allocated by this library.
 #[unsafe(no_mangle)]
@@ -120,6 +171,7 @@ pub unsafe extern "C" fn system_permissions_result_free(result: *mut SystemPermi
     }
 }
 
+/// Creates an empty store.
 #[unsafe(no_mangle)]
 pub extern "C" fn system_permissions_store_new() -> *mut SystemPermissionsStore {
     catch_unwind(|| {
@@ -140,9 +192,54 @@ pub unsafe extern "C" fn system_permissions_store_free(store: *mut SystemPermiss
     }
 }
 
+/// Dispatches a store request using the same JSON and owned result contract as
+/// `system_permissions_call`. Calls serialize access. No callbacks or OS effects
+/// run under lock.
+///
+/// Supported store operations and request fields follow.
+///
+/// - `track {permissions}` returns `{values:[{permission,result}]}`. It replaces
+///   the set, preserves retained entries and deduplicates in order.
+/// - `get {permission}` returns a result or null.
+/// - `begin {permission}` returns `{token:uint64 or null}`.
+/// - `recordObservation {permission,result}` returns `{result,previousResult}`
+///   or null for an untracked permission. `previousResult` is null for an initial
+///   or unchanged sample. Poll samples leave admitted work and stored status intact.
+/// - `admit {permission,kind:"refresh"|"request"}` returns `{token:uint64 or null}`.
+/// - `admitScoped {permission,options,kind:"refresh"|"request",cancelled:bool}`
+///   returns `{kind:"untracked"|"invalidOptions"|"isolated"|"suppressed"}` or
+///   `{kind:"stored",token:uint64}`.
+/// - `admitAllRefreshes` returns `[{permission,token:uint64}]` in tracking order.
+/// - `finish {token:uint64}` returns `{finished:bool}`.
+/// - `apply {updates:[{permission,token,result}],cancelled:bool}` returns
+///   `{changed,accepted}`.
+/// - `snapshot` returns `{values:[{permission,result}]}`.
+///
+/// Inconsistent metadata or duplicate update identities fail atomically.
+/// `begin` is explicit manual ordering. It supersedes prior work and clears
+/// typed request priority, even when its eventual apply is cancelled. Typed
+/// admission validates the descriptor and metadata before suppressing a refresh
+/// while the latest typed request is active. A typed request always supersedes
+/// prior work. A null admission token denotes suppression or an untracked
+/// permission. Use `get` to distinguish them. All reservations share one
+/// store-global token sequence.
+///
+/// `admitScoped` validates options before reserving. Add-only Photos operations
+/// identify an isolated scope with no token. Cancellation suppresses stored work.
+/// Adapters skip provider calls for cancelled operations. `admitAllRefreshes`
+/// skips pending requests and admits the remaining scopes together. Token
+/// exhaustion leaves all existing work unchanged.
+///
+/// `finish` retires only matching current work and preserves its result. It never
+/// revives earlier tokens. A stale or missing nonzero token returns false and
+/// zero fails. `apply` keeps tokens reusable until superseded or finished, even
+/// after a cancelled apply. Adapters finish on every terminal path. `accepted`
+/// counts matching tokens, including unchanged values. Untracked or stale
+/// results are filtered after full validation. Tokens are scoped to their store.
+///
 /// # Safety
-/// Store is live for the entire call; input is readable for len bytes. The result is owned
-/// and independent of both inputs and the store. No callbacks or OS effects run under lock.
+/// Store is live for the entire call. Input is readable for len bytes. The result
+/// is owned and independent of both inputs and outlives the store.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn system_permissions_store_call(
     store: *mut SystemPermissionsStore,

@@ -1144,7 +1144,7 @@
         },
         "inputs": {
           "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
-          "crates/ffi/Cargo.toml": "9fec1324e1959b37793cdab11cd73081827ce0a81a812e8d8d96f2dd42be3a9f"
+          "crates/ffi/Cargo.toml": "c79e91ac0cf034ab4b7b07a3eb9571eaca6baa54f2f74b16322eab3b342d6214"
         },
         "name": "system-permissions-ffi",
         "source": "workspace",
@@ -1229,7 +1229,7 @@
       "Cargo.lock": "7c90522dc23027480cb83ae3264456bf5029c65ff498fcb38c47e0caf6f19c46",
       "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
       "crates/core/Cargo.toml": "8b13c6ae1afc100737926ad33452dbff2ff1c1cc2e89a47bfdca66424ae5b1b1",
-      "crates/ffi/Cargo.toml": "9fec1324e1959b37793cdab11cd73081827ce0a81a812e8d8d96f2dd42be3a9f",
+      "crates/ffi/Cargo.toml": "c79e91ac0cf034ab4b7b07a3eb9571eaca6baa54f2f74b16322eab3b342d6214",
       "rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33"
     }
   },
@@ -1308,10 +1308,10 @@
     "crates/core/src/model.rs": "774dc63a7a71ed39c4aaf5167eb5599ab8977096d9946a6c19b65ec30ef3f50d",
     "crates/core/src/store.rs": "09d55ce76b1d9812ce88c63141a1c0ac7590991db3ea6a56783f70014a8d81a8",
     "crates/core/src/wire.rs": "a1c05696a8cc1f59d9432362abd2a6dd9b4d23a04cbac1e94b0c84406e0f4a9e",
-    "crates/ffi/Cargo.toml": "9fec1324e1959b37793cdab11cd73081827ce0a81a812e8d8d96f2dd42be3a9f",
-    "crates/ffi/include/system_permissions.h": "36b9356a7ecf490e611c0c9f627680f01a2f70f47298d67c986a4666b0e61436",
+    "crates/ffi/Cargo.toml": "c79e91ac0cf034ab4b7b07a3eb9571eaca6baa54f2f74b16322eab3b342d6214",
+    "crates/ffi/include/system_permissions.h": "8d8647d295279001ff2fab5bfd9e576e1136bf962f9120b7278aa30ad1a7d041",
     "crates/ffi/module.modulemap": "9cd9a6b1300ffcc3e51c70f019acbfea7c385ac53e55ce1d05b32d40a9df3d9a",
-    "crates/ffi/src/lib.rs": "7713dde30c07417c227e8def650e938224129735d19b658709f1bdb3c513d506",
+    "crates/ffi/src/lib.rs": "0739a90f20b1b454888949adc12ad520e492c60c5b78eef6217a2458228e9417",
     "crates/ffi/src/windows.rs": "12af166a74f98ef2c7bacb32c8c857453af828f0e01abf1f5e7559787dfdc984",
     "crates/windows/Cargo.toml": "1449fea7330c2fc2957630800c0c15826b1f77b7d3fcdb35d6637452d1fc57ea",
     "native.toml": "bc489fe334b8b2781d4277587b964f8b4958caa55c4461afd9a07d7b9d015246",
@@ -1324,12 +1324,12 @@
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Headers": "036ae9446c4f0c59046671d1d96e2de4f606b340d8a5c1927b2d51bc293e0365",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Modules": "278b6b2d8f8418e2e4877a67a109b6e3865174e4fa7405870a643e95cbc2f783",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Resources": "c213ee8e9c523538d862da3e5716b64bf090f6a1be08914954ae33cfbda7dbb2",
-    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/CSystemPermissions": "d3b5644a02505ded2423bae42e2b4fe4fadd7f4c4dec56945aca8dfad6053426",
-    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Headers/system_permissions.h": "36b9356a7ecf490e611c0c9f627680f01a2f70f47298d67c986a4666b0e61436",
+    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/CSystemPermissions": "cbef6ed56f9b5ba8967cf21b572d9c6ce700d9c7df38d71b524602886bff718a",
+    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Headers/system_permissions.h": "8d8647d295279001ff2fab5bfd9e576e1136bf962f9120b7278aa30ad1a7d041",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Modules/module.modulemap": "9cd9a6b1300ffcc3e51c70f019acbfea7c385ac53e55ce1d05b32d40a9df3d9a",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Resources/Info.plist": "14c6583adfffde6b72d6004d310cf7db150ad41ca666a495a5cab210cb8ef407",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Resources/ThirdPartyNotices.txt": "63ae2fa2df0391b5172ffc17cf1d708cd4115371663c16c43a98bc77035e1a54",
-    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/_CodeSignature/CodeResources": "bb486f91cccb80cce66ebecf3eec8377fd945aec15214b2b37578c7f93c47d87",
+    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/_CodeSignature/CodeResources": "9d7eeefc021e468e8c8124eb3385ae338ff5e425fea3a60348af40a0541fc7e9",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/Current": "ee26006c07174064a7bed9b283a8b016d74a295e05c4e23a1846538d69b23c5f"
   },
   "productionSources": [

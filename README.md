@@ -278,6 +278,9 @@ boundary, installed package consumption, async cancellation and native effects.
 
 Use Rust 1.99.1 and .NET 10 with repository/task-specific tool selection. Rebuild
 native artifacts after Rust, header, native build or upstream-notice changes.
+`mise exec -- make native` regenerates the C header and module map from the
+Rust FFI. Source checks compare the generated files with the tracked copies.
+Installed C and Swift consumers use the bundled header.
 [`native.toml`](native.toml) declares the build settings.
 `Artifacts/native-build.json` binds the build inputs to the tracked framework. Required
 upstream notices and Rust runtime provenance remain under `ThirdParty/`. The
