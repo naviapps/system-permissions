@@ -267,10 +267,8 @@ select the installed framework's parent directory. The installed C client needs
 neither Rust nor an SDK source checkout.
 
 .NET uses `NaviApps.SystemPermissions` for shared contracts/state and
-`NaviApps.SystemPermissions.Windows` for Windows integration. Standalone Windows
-builds produce `win-x64` native assets and local NuGet packages.
-See the [.NET guide](bindings/dotnet/README.md) for local package installation,
-managed usage and the x64 build on Windows x64 and ARM64.
+`NaviApps.SystemPermissions.Windows` for Windows integration. See the
+[.NET guide](bindings/dotnet/README.md) for installation and managed usage.
 
 ## Development and verification
 
@@ -321,8 +319,59 @@ gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
   -f sdk=system-permissions -f "revision=$(git rev-parse HEAD)"
 ```
 
-`make check-distribution` verifies the tracked framework and tests C ownership,
-managed bindings and clean local NuGet consumption. Use `mise exec -- make native` when the framework needs rebuilding.
+`make check-distribution` verifies the tracked framework, runs
+`make test-bindings`, and tests the distribution drivers. The binding target
+tests C ownership and the managed contract, then installs both packages in a
+fresh temporary feed. Source fixtures use the `SystemPermissionsNativeLibrary`
+MSBuild property to stage the library beside the managed output. Use
+`mise exec -- make native` when the framework needs rebuilding.
+
+To check the downloaded core and adapter together, use the SDK checkout at the
+distribution revision and point the fixture to the local feed. The consumer
+disables reflection-based JSON serialization.
+
+```sh
+mise run sdk-tooling -- python distribution/verify_bindings.py --feed "LOCAL_PACKAGE_DIRECTORY"
+```
+
+#### Windows package acceptance
+
+Use an owned Windows x64 or ARM64 worker. Review [`mise.toml`](mise.toml) and
+install the host-native Rust version from
+[`rust-toolchain.toml`](rust-toolchain.toml), Visual Studio C++ tools for the
+x64 target, and the x64 .NET SDK from [`global.json`](global.json).
+On ARM64, use native ARM64 PowerShell and Visual Studio `HostARM64d`
+components. Set `DOTNET_BIN` to the absolute path of the x64 executable.
+The default on ARM64 is `C:\Program Files\dotnet\x64\dotnet.exe`.
+See [Visual Studio on ARM64](https://learn.microsoft.com/visualstudio/install/visual-studio-on-arm-devices)
+and [install .NET on Windows](https://learn.microsoft.com/dotnet/core/install/windows).
+
+Run from the SDK root with your x64 .NET path. This example uses the usual
+path on an x64 host.
+
+```powershell
+$env:DOTNET_BIN = 'C:\Program Files\dotnet\dotnet.exe'
+mise trust mise.toml
+mise install python uv
+rustup target add x86_64-pc-windows-msvc
+mise run sdk-tooling -- windows distribution/verify_windows.py
+```
+
+The driver runs the Rust, C and managed fixtures and verifies both packages
+against one staged x64 DLL. On ARM64 it uses x64 emulation. Its receipt records
+the DLL and tooling hashes, host and target, and execution mode. It writes the
+Windows-only feed to `build/windows/win-x64/`, or to `win-x64` under
+`VM_RUNNER_ARTIFACTS_DIR` when set. Keep this feed separate from the combined
+package feed.
+
+The hosted job publishes the adapter and its receipt and transfers the accepted
+DLL for the combined core alongside both verified macOS slices. Its disposable
+MSIX fixture checks package identity, nonprompting status, unsupported direct
+consent and Settings admission, then removes the package and its certificate.
+The hosted consumers exercise the same core bytes on macOS ARM64 and x64 and
+Windows x64. Set `-f windows-on-arm=true` for x64 execution on Windows ARM64.
+
+#### Standalone consumers
 
 `make test-consumer` builds and runs `fixtures/consumers/swift/` against a disposable
 SDK containing only `Package.swift`, `Sources`, `Tests`, `Artifacts` and `ThirdParty`.

@@ -1,29 +1,35 @@
 # SystemPermissions for .NET
 
-`NaviApps.SystemPermissions` contains thin Rust C bindings,
-public values, a checker and an owned deterministic store.
-`NaviApps.SystemPermissions.Windows` supplies Windows native effects.
-Metadata, descriptor and options validation, identity, access semantics and stale
-update rejection are shared Rust behavior, not managed policy tables.
+`NaviApps.SystemPermissions` provides Rust-backed permission contracts, checking
+and state. `NaviApps.SystemPermissions.Windows` supplies the Windows effects.
+The [shared permission contract](https://github.com/naviapps/system-permissions/blob/main/README.md#responsibility)
+defines permission states, operation admission and the host's responsibilities.
 
 ## Install
 
-Use .NET 10 and the verified `NaviApps.SystemPermissions` package from the
+Use .NET 10 and download the core `system-permissions-nuget-<revision>-<attempt>`
+artifact from a successful
 [SDK distribution workflow](https://github.com/naviapps/sdk-tooling/actions/workflows/check-sdk-distribution.yml).
-The same package contains `osx-arm64` and `osx-x64` for macOS 26 or later and
-`win-x64` for Windows. On Windows 11 ARM64, use x64 .NET to run it under
-emulation. Use the Windows adapter package for host calls such as checking
-packaged desktop permissions.
+Check the package's SHA-256 against its receipt and place the `.nupkg` in a
+local feed. The core includes `osx-arm64` and `osx-x64` for macOS 26 or later,
+and `win-x64` for Windows. On Windows 11 ARM64, use x64 .NET under emulation.
+
+For Windows host calls, also download the adapter artifact
+`system-permissions-nuget-companions-<revision>-<attempt>` from the same run.
+Verify its package against the Windows receipt and place it beside the core in
+the local feed. Reference `NaviApps.SystemPermissions.Windows` to install the
+adapter and its exact core dependency.
 
 ### Try the installed package
 
-In a new directory, replace `LOCAL_PACKAGE_DIRECTORY` with the absolute path
-to the verified feed. Use the .NET executable for the package's architecture
-for all four commands.
+Run the commands in a new directory using the package's .NET architecture.
+Replace `LOCAL_PACKAGE_DIRECTORY` with the absolute feed path and use the
+downloaded version. For the adapter, substitute its package name. Restore to a
+fresh cache when switching between candidate builds with the same version.
 
 ```sh
 dotnet new console --framework net10.0 --no-restore
-dotnet package add NaviApps.SystemPermissions --version 0.1.0 --no-restore
+dotnet package add NaviApps.SystemPermissions --version "[0.1.0]" --no-restore
 dotnet restore --source "LOCAL_PACKAGE_DIRECTORY" --packages .nuget-packages
 ```
 
@@ -41,106 +47,15 @@ Console.WriteLine(camera == PermissionDescriptor.Camera);
 dotnet run --no-restore
 ```
 
-The check prints `True`. For a Windows application that uses the adapter,
-reference `NaviApps.SystemPermissions.Windows`. Download the core
-`system-permissions-nuget-<revision>-<attempt>` and the adapter
-`system-permissions-nuget-companions-<revision>-<attempt>` from the same
-successful distribution run. Place both `.nupkg` files in the same feed
-directory. Run the same commands above, replacing the package name with
-`NaviApps.SystemPermissions.Windows`. The adapter brings in the matching core.
-Use a fresh package cache each time you switch feeds or rebuild a candidate.
-[NuGet package cache resolution](https://learn.microsoft.com/en-us/nuget/consume-packages/managing-the-global-packages-and-cache-folders).
-
-From the SDK checkout used for the distribution run, verify the exact downloaded
-core and adapter together with a fresh local-only restore and execution. This
-check disables default reflection-based JSON serialization in the consumer.
-
-```sh
-mise run sdk-tooling -- python distribution/verify_bindings.py --feed "LOCAL_PACKAGE_DIRECTORY"
-```
-
-### Verify bindings on macOS
-
-From the repository root, prepare the pinned tools described in the
-[developer setup](../../README.md#development-and-verification), then run
-
-```sh
-mise exec -- make test-bindings
-```
-
-This uses the tracked framework and runs C, managed, and local NuGet fixtures.
-The per-host package pair is temporary. The distribution workflow is the source
-for the combined package.
-
-### Build packages on Windows
-
-Use an owned x64 or ARM64 Windows worker. Install the Rust version in
-[`rust-toolchain.toml`](../../rust-toolchain.toml) for the host architecture,
-the Visual Studio C++ tools for the x64 target and the x64 .NET SDK in
-[`global.json`](../../global.json). Configure `DOTNET_BIN` with its absolute path.
-On x64, the default path is `C:\Program Files\dotnet\dotnet.exe`. On ARM64,
-use native ARM64 PowerShell and Visual Studio with `HostARM64\x64` tools.
-The default x64 .NET path there is `C:\Program Files\dotnet\x64\dotnet.exe`.
-See [Visual Studio on ARM64](https://learn.microsoft.com/visualstudio/install/visual-studio-on-arm-devices)
-and [install .NET on Windows](https://learn.microsoft.com/dotnet/core/install/windows).
-
-Run from the SDK root with the appropriate .NET path. Review the repository's
-[`mise.toml`](../../mise.toml) before trusting it.
-
-```powershell
-$env:DOTNET_BIN = 'C:\Program Files\dotnet\dotnet.exe'
-mise trust mise.toml
-mise install python uv
-rustup target add x86_64-pc-windows-msvc
-mise run sdk-tooling -- windows distribution/verify_windows.py
-```
-
-The script selects ARM64-hosted x64 MSVC on an ARM64 worker and native x64 MSVC
-on an x64 worker. Keep `DOTNET_BIN` set to the absolute x64 executable on ARM64.
-
-The script places the Windows-only validation feed containing the core and
-adapter packages with their receipt in `build/windows/win-x64/`. Keep this feed
-separate from the combined package feed.
-On ARM64, Windows executes the x64 Rust and C fixtures and the x64 .NET process
-through emulation. The C fixture, managed fixture and NuGet package use the
-same staged DLL. The receipt records its SHA-256, target, host, execution mode
-and SHA-256 hashes of the pinned distribution tooling.
-When `VM_RUNNER_ARTIFACTS_DIR` is set, it writes the verified pair and receipt directly
-into that directory's `win-x64` subdirectory.
-The public Windows x64 workflow runs Rust and managed binding tests. SDK Tooling's
-hosted distribution check exercises the paired feed in a private workspace,
-uploads the verified Windows adapter with its receipt, and transfers
-the tested Windows DLL for the combined core package. The same check
-installs an owned, temporary x64 MSIX to check
-package identity, nonprompting status, unsupported direct consent and Settings
-admission. The fixture removes its package and signing certificate after the test.
-The local command also supports x64 emulation on Windows ARM64.
+The check prints `True`. For package builds and acceptance tests, see the
+[maintainer's distribution guide](https://github.com/naviapps/system-permissions/blob/main/README.md#distribution-verification).
 
 ## Usage
 
-`NotificationRequestOptions` uses these shared SDK wire bits:
-`Alert=1`, `Badge=2`, `Sound=4`, `CriticalAlert=8`, `Provisional=16` and
-`ProvidesAppNotificationSettings=32`. These are not native platform bit positions.
-Arbitrary raw `ulong` masks, including unknown bits, remain exact through JSON and
-Rust validation. They do not enable Windows notification authorization.
-Earlier .NET masks require host-controlled translation only when their origin and
-meaning are known; the SDK cannot infer a version from a raw integer and supplies
-no compatibility aliases or automatic migration.
-
-```csharp
-using NaviApps.SystemPermissions;
-using NaviApps.SystemPermissions.Windows;
-
-// Capture on the application's existing STA UI thread.
-var dispatcher = new SynchronizationContextPermissionDispatcher(
-    SynchronizationContext.Current ?? throw new InvalidOperationException());
-var checker = new PermissionChecker(new WindowsPermissionEnvironment(dispatcher));
-using var store = new PermissionStore();
-store.Track([PermissionDescriptor.Camera]);
-await store.RefreshAsync(checker, PermissionDescriptor.Camera);
-// Only call from an explicit user action:
-await checker.OpenSettingsAsync(PermissionDescriptor.Camera);
-```
+`NotificationRequestOptions` represents the
+[shared 64-bit wire mask](https://github.com/naviapps/system-permissions/blob/main/README.md#notification-option-wire-contract).
+Use the SDK values in managed code and follow that contract when migrating raw
+masks from earlier .NET versions.
 
 `RefreshAsync` and `RefreshAllAsync` take `IPermissionStatusChecking` so read-only
 providers only implement `StatusAsync`. A batch checks the tracked permissions
@@ -232,6 +147,22 @@ provider, changing stored results or superseding earlier operations.
 
 ### Windows privacy
 
+The dispatcher must be created on the application's STA UI thread.
+
+```csharp
+using NaviApps.SystemPermissions;
+using NaviApps.SystemPermissions.Windows;
+
+var dispatcher = new SynchronizationContextPermissionDispatcher(
+    SynchronizationContext.Current ?? throw new InvalidOperationException());
+var checker = new PermissionChecker(new WindowsPermissionEnvironment(dispatcher));
+using var store = new PermissionStore();
+store.Track([PermissionDescriptor.Camera]);
+await store.RefreshAsync(checker, PermissionDescriptor.Camera);
+// Call from an explicit user action.
+await checker.OpenSettingsAsync(PermissionDescriptor.Camera);
+```
+
 Windows 10 version 1903 or newer provides AppCapability. This adapter checks
 `webcam`, `microphone` and `location` when the current process has package identity
 and the native API is available. Packaged callers declare the relevant capability.
@@ -258,16 +189,3 @@ dispatch, returns a structured unsupported result when the platform has no
 destination, and throws on cancellation. Injected environments may handle
 their own validated custom destinations. Settings results are Boolean
 operation outcomes and cannot be applied to the permission store.
-
-## Validation
-
-The platform binding tools validate C ownership and deterministic .NET contracts,
-then pack and consume both NuGet packages using a fresh local-only package cache.
-They do not start a VM or request permissions. Source checks use the
-`SystemPermissionsNativeLibrary` MSBuild property to copy the selected native
-library beside the managed output.
-
-macOS validation uses the tracked CSystemPermissions framework. The combined
-package stages a standalone signed copy of its macOS library and stages the
-Windows DLL from the verified native build. The workflow exercises the same
-core package bytes on both macOS architectures and Windows x64.
