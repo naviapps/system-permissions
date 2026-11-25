@@ -276,7 +276,8 @@ Rust tests cover the full metadata, access, option validation and store ordering
 contracts. Binding tests exercise typed values and errors across the native
 boundary, installed package consumption, async cancellation and native effects.
 
-Use Rust 1.99.1 and .NET 10 with repository/task-specific tool selection. Rebuild
+Use .NET 10 and the Rust version pinned in `rust-toolchain.toml` with
+repository/task-specific tool selection. Rebuild
 native artifacts after Rust, cbindgen configuration, native build or upstream-notice changes.
 `mise exec -- make generate-header` writes the C header in `crates/ffi/include/`
 and the module map in `crates/ffi/` for local use. Git ignores both files.

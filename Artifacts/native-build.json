@@ -18,7 +18,7 @@
         "name": "itoa",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
         "targetName": "itoa",
-        "version": "1.0.18"
+        "version": "1.0.19"
       },
       {
         "compilation": "target",
@@ -202,7 +202,7 @@
         "name": "syn",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
         "targetName": "syn",
-        "version": "3.0.9"
+        "version": "3.0.10"
       },
       {
         "compilation": "target",
@@ -270,7 +270,7 @@
         "name": "itoa",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
         "targetName": "itoa",
-        "version": "1.0.18"
+        "version": "1.0.19"
       },
       {
         "compilation": "target",
@@ -454,7 +454,7 @@
         "name": "syn",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
         "targetName": "syn",
-        "version": "3.0.9"
+        "version": "3.0.10"
       },
       {
         "compilation": "target",
@@ -513,7 +513,7 @@
       }
     ]
   },
-  "compiler": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1",
+  "compiler": "rustc 1.100.0 (0ef1bc386 2026-11-09)\nbinary: rustc\ncommit-hash: 0ef1bc386059596dada8fb65b50425aab2ea637a\ncommit-date: 2026-11-09\nhost: aarch64-apple-darwin\nrelease: 1.100.0\nLLVM version: 23.1.5",
   "configuration": {
     "ffi": "crates/ffi",
     "library": "system_permissions",
@@ -534,30 +534,30 @@
   "dependencies": {
     "packages": [
       {
-        "checksum": "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682",
+        "checksum": "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4",
         "features": {
           "aarch64-apple-darwin": [],
           "x86_64-apple-darwin": []
         },
         "inputs": {
-          ".cargo_vcs_info.json": "e0165305f3b22a9ab4217a121f85379aa56c2675caa7afedc0a7468fc187600b",
+          ".cargo_vcs_info.json": "59616383194141d6a182c648abed2d6da67917aba21d843564a773d1eacb5496",
           ".github/FUNDING.yml": "b017158736b3c9751a2d21edfce7fe61c8954e2fced8da8dd3013c2f3e295bd9",
-          ".github/workflows/ci.yml": "89c4f60223daf03217ea7c1e8879135b11d2554bd1e57dd9eff5c02f1adc7909",
+          ".github/workflows/ci.yml": "5d197e7af15a1e5c2ace39c33e5196b9a76244355609c7681283ee9f16e5ceec",
           ".gitignore": "07d64eb09a56c853b7853a47276799b38d7d6d25a4314b0c1abc10432c214e17",
-          "Cargo.lock": "1cd64090b8e883963bb08d91e6968cc1e83ffdba4f4b2f47651ce9d351a8a947",
-          "Cargo.toml": "894c215e4e7e973b556b0e9627bf9b6a719a043fac9b5af9838660816392a09f",
-          "Cargo.toml.orig": "44ca1ae5d9b48743305b57f3367051289512037e7836b8b3693b68d48dec0483",
+          "Cargo.lock": "1265f5c39ddede9af0c34bd08566dcf563d88eb239f5106fb0dffd79930a4d93",
+          "Cargo.toml": "390761f23126428f121c5c23dff87d42d9e78a2c0ac5031a59605b7eda8cc356",
+          "Cargo.toml.orig": "e5c0e93914f73b0e0473f59b24c7f2a82370bd474b5aa6dbf3be1c76c1f79827",
           "LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
           "LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
           "README.md": "1305bd79675db0194915d9bc91bd0b3cf9487bc1126e05bf46b48ab43edce44b",
           "benches/bench.rs": "29a0bdb973848007d681e571c57487e21e1bfb7aed5980c2190dba354498b154",
-          "src/lib.rs": "e962338e1886873aa7c3399ec89aa5378ccbfed712b9690f043628079390a34f",
+          "src/lib.rs": "4289a1fc5c20e8927f4ce27d1d0f085ae0f9fe7b666462dce92bd36466e89829",
           "src/u128_ext.rs": "498cc94f13805e551248fd82f47cc318f51d953a5002a9f8698858cd12fbae3c",
-          "tests/test.rs": "b22f8a8ed89edcbb4140b74f5edd7f2adf3cb0e363990dd6010cd6ebe0dc36b7"
+          "tests/test.rs": "fca9b50e3f7ddb9466a69f682c2e624b2102c619f3fdd4e63e39a8bc1f2ac8e9"
         },
         "name": "itoa",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
-        "version": "1.0.18"
+        "version": "1.0.19"
       },
       {
         "checksum": "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98",
@@ -997,7 +997,7 @@
         "version": "1.0.154"
       },
       {
-        "checksum": "d78c8dee4c7bf0e14673097256fed6142ce9d3b85a408189d07482442145823b",
+        "checksum": "4ae9ccbea3a7b0b09443036490c8f34a8b1b760fd345e5c0dae0aac718faea79",
         "features": {
           "aarch64-apple-darwin": [
             "clone-impls",
@@ -1015,10 +1015,10 @@
           ]
         },
         "inputs": {
-          ".cargo_vcs_info.json": "cee294e3a4f8d4422a82e49ee3224414ea309f9c2e717533d97f0c960f3b8eab",
-          "Cargo.lock": "5f4c517504cd387d67423ed245a18bba376df929cdbaf444e310251c731ffc5b",
-          "Cargo.toml": "b6f7f6069d92142d3e294f84855a68049bebc5b886c557ed4ae980ddbc866e1c",
-          "Cargo.toml.orig": "d80272529ba81ff84369a6dd390a1eb3de56e01cdc7633e81a7cd7f9512d41cc",
+          ".cargo_vcs_info.json": "e26a647ede4f4db469664a5ea3a93589c8a854abae51a070a543f6328236236a",
+          "Cargo.lock": "a520598f761ea734d76b2f256a5a44d5116018c3b5ea86ee6aee8f6c00e83b77",
+          "Cargo.toml": "483292e3ca48fc6fc04c1ff03ef5fcafdb39417cee3df0727122b52129b1dc6b",
+          "Cargo.toml.orig": "673d452a27444d399783f9a6b4a3349381ece66ceaf19624bb43f139d5a01bd1",
           "LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
           "LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
           "README.md": "a00f270c7f468863f28b9984547872efb57c7db1b9beb6e685852dc24de6846e",
@@ -1039,7 +1039,7 @@
           "src/expr.rs": "9196c144305eda8bdd63e117c8126aef2170af1dae08a951e4af70399bed8f5a",
           "src/ext.rs": "8bc0d0ffab88c73d2305c9f588e6b5285501de8869308162f91019c83bc5bdf1",
           "src/file.rs": "4513d0f1f4a4d78ba94c0895e97aadc0c2ebcf6f5da36abf762e77e813bc9aea",
-          "src/fixup.rs": "7647cde30efdce96b1488ae805788c168d4499b464b7d421abc17ea8ffde66f2",
+          "src/fixup.rs": "b04ad7fcc5a2fa21f5e4058b358354ba4eb38ca013f30a06876955646dd59555",
           "src/gen/clone.rs": "342704f87c06f11b4b6b60689df5f55e7a9a67d656b9286cc23a364f485c135f",
           "src/gen/debug.rs": "29782ea05d86b95e98bb664d6688c413c871dc78f5dc9ee81f584aaa63e85558",
           "src/gen/eq.rs": "15f2b5070ea8fccf07dbff6bf2fdc027c6d913599b5c1a8e8a5bc9e39e601133",
@@ -1052,7 +1052,7 @@
           "src/group.rs": "61e067094aa930b6550dc3717a5aaeef7dabfdcf1a177f83fb636598fa7e4e72",
           "src/ident.rs": "a17e32b0d997649c4c986d1c9eef24be5331cd9ab478604932297b55f785487a",
           "src/item.rs": "11529dc48c5045d3b0f7947d05ea5aadf0f389f4a8e0b25222333042721ab10f",
-          "src/lib.rs": "bbd84571900844f1c73bf784ead1adb2c1ac07163e2038920bae9c0bc132e9e5",
+          "src/lib.rs": "18e97adc1098c1edac0c9aab253e34844da6699af095ffebb5b949fe0000ed45",
           "src/lifetime.rs": "2f3a240a4a0d9536dd1e3255d5ae0d64efcc46f295cf565a09e8ac33cd3d3487",
           "src/lit.rs": "b474ef6e974844ba972c0fcedf3e075f03e822faf4e55a9b27f648efe7121098",
           "src/lookahead.rs": "ea51bbf9a23d68238f8324a51675f5815fb3e5fc08c6bab93bc2648d3342c38f",
@@ -1080,7 +1080,7 @@
           "src/ty.rs": "63bbf2272575d40ba632b54ca51857f43410bc22c20ff3ecedee3d3f52dd84e5",
           "src/verbatim.rs": "503055ba92ebb97da71a8a7cae1e6606969aadfb965b0d6c7e56693f9ef66b0a",
           "src/whitespace.rs": "9cdcbfe9045b259046329a795bc1105ab5a871471a6d3f7318d275ee53f7a825",
-          "tests/common/eq.rs": "bb7e40bf43a7628e305fc1afaa4c0b540e7bb2f25f4a3b9d3ac4c317bbb58a29",
+          "tests/common/eq.rs": "b0e38007ccf43fd753c8337a739b707bb60e25fbbaa206908245bcd36f1d38d4",
           "tests/common/mod.rs": "b752aa8f1faf8c6abf1286a12fb50b6c257ec1889d81bcdb3dc3257134695a89",
           "tests/common/parse.rs": "b1685e9e0f0569f48d66ddd92d787a12933a1d2f95e7c9ae974a3648763f989b",
           "tests/common/visit.rs": "a260ecd2ce7853cd3644e19aba08e8d358a656fd3fb0f1287cea40c59c9e62c9",
@@ -1095,7 +1095,7 @@
           "tests/snapshot/mod.rs": "4a101272c5abe6ca9f3501e0cacacee9a0ccf7ca773348a239e5b046d0316a7e",
           "tests/test_attribute.rs": "8a4429b7cfe2360bb73beae54a62ae3255ebbd5181467a8608d6f858c2711728",
           "tests/test_derive_input.rs": "ac6fff053bded4ca30f88343cbf984a319119b58805f56058bd6ad61a1f60972",
-          "tests/test_expr.rs": "0356f48052aaa837147fcab33185703e24c0bac5f4d007234f3e86c7cf5a3faa",
+          "tests/test_expr.rs": "b19ff085d05bfc6eaef7bfb2066bfa825b6ca43543ac260589a33b0ab0d9d84c",
           "tests/test_generics.rs": "2bd20cbaab8ff268e6e283ae9564f064f352deab7d3d4beafb7f41baa2b862cf",
           "tests/test_grouping.rs": "fe3de6e8824f0722ab6450c6dfc374f6e0f8fe75c87c4dd56b2cb00a2197ed58",
           "tests/test_ident.rs": "d5850e817720e774cd397a46dbc5298c57933823c18e20805e84503fc9387e8f",
@@ -1122,7 +1122,7 @@
         },
         "name": "syn",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
-        "version": "3.0.9"
+        "version": "3.0.10"
       },
       {
         "features": {
@@ -1130,7 +1130,7 @@
           "x86_64-apple-darwin": []
         },
         "inputs": {
-          "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
+          "Cargo.toml": "909d63fc559d1890d850205817516d543c4d902d9632a3bd51188cf429a2facc",
           "crates/core/Cargo.toml": "8b13c6ae1afc100737926ad33452dbff2ff1c1cc2e89a47bfdca66424ae5b1b1"
         },
         "name": "system-permissions",
@@ -1143,7 +1143,7 @@
           "x86_64-apple-darwin": []
         },
         "inputs": {
-          "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
+          "Cargo.toml": "909d63fc559d1890d850205817516d543c4d902d9632a3bd51188cf429a2facc",
           "crates/ffi/Cargo.toml": "fc2e4ef479ecfb86cfca7c74d2aac545e2018e9db819649afbf3dc38d2b98c69"
         },
         "name": "system-permissions-ffi",
@@ -1226,11 +1226,11 @@
       "x86_64-apple-darwin"
     ],
     "workspaceInputs": {
-      "Cargo.lock": "7c90522dc23027480cb83ae3264456bf5029c65ff498fcb38c47e0caf6f19c46",
-      "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
+      "Cargo.lock": "b2bebb316093952826b06e0bb1aaf64cd9766ebe52668aab41dc19e98ecc6669",
+      "Cargo.toml": "909d63fc559d1890d850205817516d543c4d902d9632a3bd51188cf429a2facc",
       "crates/core/Cargo.toml": "8b13c6ae1afc100737926ad33452dbff2ff1c1cc2e89a47bfdca66424ae5b1b1",
       "crates/ffi/Cargo.toml": "fc2e4ef479ecfb86cfca7c74d2aac545e2018e9db819649afbf3dc38d2b98c69",
-      "rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33"
+      "rust-toolchain.toml": "6b1cf8341d9a08d76c6deb1e9df90a0b208d0ef0d00ee05e0173e9cd4f0f425d"
     }
   },
   "deploymentTarget": "26.0",
@@ -1246,16 +1246,16 @@
     "_system_permissions_store_new"
   ],
   "inputs": {
-    "Cargo.lock": "7c90522dc23027480cb83ae3264456bf5029c65ff498fcb38c47e0caf6f19c46",
-    "Cargo.toml": "607d435ed6e2e291ec5ce7ed9d1dc196b494aeb5649c578d6877ec600c21941b",
+    "Cargo.lock": "b2bebb316093952826b06e0bb1aaf64cd9766ebe52668aab41dc19e98ecc6669",
+    "Cargo.toml": "909d63fc559d1890d850205817516d543c4d902d9632a3bd51188cf429a2facc",
     "LICENSE": "e18e92825e5b064c568d67d636729c2d8669b61ea9d68b0fa5283b713d70aab1",
     "ThirdParty/Rust/COPYRIGHT": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af",
-    "ThirdParty/Rust/COPYRIGHT-library.html": "5647be074c8edf7339fd863055923a8fc80bc5610a8d4661ec3b767b9d392c27",
+    "ThirdParty/Rust/COPYRIGHT-library.html": "626556344c12679d7cab2c1aa2ce80de01937b62c2c88c62f0650a469be18799",
     "ThirdParty/Rust/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
     "ThirdParty/Rust/LICENSE-MIT": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1",
-    "ThirdParty/Rust/provenance.json": "123e52d01e6685dedbffe4062cfc4db869d9cfac10470b4a1b930c442da2e654",
-    "ThirdParty/itoa-1.0.18/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
-    "ThirdParty/itoa-1.0.18/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+    "ThirdParty/Rust/provenance.json": "eed9af2d1c0de869ffb6117537a259735ed635f9c46119d578df4029289cd497",
+    "ThirdParty/itoa-1.0.19/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+    "ThirdParty/itoa-1.0.19/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
     "ThirdParty/memchr-2.8.3/COPYING": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
     "ThirdParty/memchr-2.8.3/LICENSE-MIT": "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f",
     "ThirdParty/permissions-kit/LICENSE": "b39443ebe1456bafd85250f7b01f85f3b4807b7db9e445298f2c442e020b6265",
@@ -1263,7 +1263,7 @@
     "ThirdParty/proc-macro2-1.0.107/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
     "ThirdParty/quote-1.0.47/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
     "ThirdParty/quote-1.0.47/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
-    "ThirdParty/registry-notices.json": "0941f5e0b5fc486fddecdbfb686bcce0b9781f85cd50d7ed113e24693ae66ba2",
+    "ThirdParty/registry-notices.json": "69c1adc81dadd293982aa9110b514f0348d5968336799ccb020603db63017a75",
     "ThirdParty/serde-1.0.229/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
     "ThirdParty/serde-1.0.229/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
     "ThirdParty/serde_core-1.0.229/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
@@ -1274,8 +1274,8 @@
     "ThirdParty/serde_json-1.0.154/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
     "ThirdParty/syn-2.0.119/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
     "ThirdParty/syn-2.0.119/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
-    "ThirdParty/syn-3.0.9/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
-    "ThirdParty/syn-3.0.9/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+    "ThirdParty/syn-3.0.10/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+    "ThirdParty/syn-3.0.10/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
     "ThirdParty/unicode-ident-1.0.27/LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
     "ThirdParty/unicode-ident-1.0.27/LICENSE-MIT": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
     "ThirdParty/unicode-ident-1.0.27/LICENSE-UNICODE": "f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1",
@@ -1315,7 +1315,7 @@
     "crates/ffi/src/windows.rs": "12af166a74f98ef2c7bacb32c8c857453af828f0e01abf1f5e7559787dfdc984",
     "crates/windows/Cargo.toml": "1449fea7330c2fc2957630800c0c15826b1f77b7d3fcdb35d6637452d1fc57ea",
     "native.toml": "bc489fe334b8b2781d4277587b964f8b4958caa55c4461afd9a07d7b9d015246",
-    "rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33"
+    "rust-toolchain.toml": "6b1cf8341d9a08d76c6deb1e9df90a0b208d0ef0d00ee05e0173e9cd4f0f425d"
   },
   "linkage": "dynamic-framework",
   "outputs": {
@@ -1324,12 +1324,12 @@
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Headers": "036ae9446c4f0c59046671d1d96e2de4f606b340d8a5c1927b2d51bc293e0365",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Modules": "278b6b2d8f8418e2e4877a67a109b6e3865174e4fa7405870a643e95cbc2f783",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Resources": "c213ee8e9c523538d862da3e5716b64bf090f6a1be08914954ae33cfbda7dbb2",
-    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/CSystemPermissions": "d430e1132c64f115bafed2b269f6c8ee8dce74df2c6cb6cf7683c0ad89366bfe",
+    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/CSystemPermissions": "70623c13544e1c16b87bdf5bd1b1e926bbd77a0f8ae581c94c4fe4382ef444b6",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Headers/system_permissions.h": "8d8647d295279001ff2fab5bfd9e576e1136bf962f9120b7278aa30ad1a7d041",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Modules/module.modulemap": "9cd9a6b1300ffcc3e51c70f019acbfea7c385ac53e55ce1d05b32d40a9df3d9a",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Resources/Info.plist": "14c6583adfffde6b72d6004d310cf7db150ad41ca666a495a5cab210cb8ef407",
-    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Resources/ThirdPartyNotices.txt": "fb14f55beb75ce8066240df5f449cb9e2731152c233a0b37bbe76894a9c17258",
-    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/_CodeSignature/CodeResources": "98a372de7cacc4b3e5c3b7280f8ce7fd8f63832f7805af5718e7f201aa242439",
+    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/Resources/ThirdPartyNotices.txt": "1cb86775b941e3daa1f6bf0cd57a0db7580b5194caad1140aeae2f9265819264",
+    "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/A/_CodeSignature/CodeResources": "6f4360b88b8dfaeeac726efd593f277ba74ccc5eb3e9edf06cc9bcb27fa03695",
     "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/Versions/Current": "ee26006c07174064a7bed9b283a8b016d74a295e05c4e23a1846538d69b23c5f"
   },
   "productionSources": [
