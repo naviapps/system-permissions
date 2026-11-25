@@ -15,6 +15,8 @@ let package = Package(
     .testTarget(
       name: "SystemPermissionsTests", dependencies: ["SystemPermissions"],
       resources: [.copy("Fixtures/notification-options.json")]),
-    .testTarget(name: "SystemPermissionsMacOSTests", dependencies: ["SystemPermissionsMacOS"]),
+    .testTarget(
+      name: "SystemPermissionsMacOSTests",
+      dependencies: ["SystemPermissionsMacOS", "SystemPermissions"]),
   ]
 )
