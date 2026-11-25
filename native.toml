@@ -1,4 +1,0 @@
-[[artifacts]]
-id = "sdk"
-symbol_prefix = "system_permissions_"
-minimum_macos = "26.0"

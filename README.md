@@ -15,7 +15,7 @@ Start with [Swift](#swift), [Rust and C](#rust-c-and-net), or the
 | `Sources/`, `Tests/`                             | Swift bindings and tests                                |
 | `bindings/dotnet/src/<project>/`                 | Named .NET source projects                              |
 | `bindings/dotnet/tests/SystemPermissions.Tests/` | .NET test project and fixtures                          |
-| `Artifacts/`, `ThirdParty/`, `native.toml`       | Native packages, upstream notices and artifact settings |
+| `Artifacts/`, `ThirdParty/`, `sdk-tooling.toml`  | Native packages, upstream notices and artifact settings |
 | `fixtures/consumers/`                            | Independent package consumers                           |
 | `distribution/`                                  | Package and native acceptance drivers                   |
 
@@ -284,7 +284,7 @@ and the module map in `crates/ffi/` for local use. Git ignores both files.
 `mise exec -- make native` builds the XCFramework and bundles those files.
 `mise exec -- make check-header` compares the bundled files with fresh output
 from the Rust FFI.
-[`native.toml`](native.toml) declares the build settings.
+The `[native]` section of [`sdk-tooling.toml`](sdk-tooling.toml) declares the build settings.
 `Artifacts/native-build.json` binds the build inputs to the tracked framework. Required
 upstream notices and Rust runtime provenance remain under `ThirdParty/`. The
 macOS builder combines the original notice bodies verbatim in

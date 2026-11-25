@@ -36,7 +36,7 @@ def main():
             "README.md": DOTNET / "README.md",
             **notice_files(),
         },
-        input_files=[Path(__file__), ROOT / "native.toml", ROOT / "mise.toml"],
+        input_files=[Path(__file__), ROOT / "mise.toml"],
         runtimes=args.runtime,
     )
     if args.result is not None:

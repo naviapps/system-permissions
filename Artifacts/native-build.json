@@ -524,7 +524,7 @@
       "system-permissions-ffi"
     ],
     "package": "system-permissions-ffi",
-    "specification": "native.toml",
+    "specification": "sdk-tooling.toml",
     "symbolPrefix": "system_permissions_",
     "targets": [
       "aarch64-apple-darwin",
@@ -1314,8 +1314,8 @@
     "crates/ffi/src/lib.rs": "0739a90f20b1b454888949adc12ad520e492c60c5b78eef6217a2458228e9417",
     "crates/ffi/src/windows.rs": "12af166a74f98ef2c7bacb32c8c857453af828f0e01abf1f5e7559787dfdc984",
     "crates/windows/Cargo.toml": "1449fea7330c2fc2957630800c0c15826b1f77b7d3fcdb35d6637452d1fc57ea",
-    "native.toml": "bc489fe334b8b2781d4277587b964f8b4958caa55c4461afd9a07d7b9d015246",
-    "rust-toolchain.toml": "6b1cf8341d9a08d76c6deb1e9df90a0b208d0ef0d00ee05e0173e9cd4f0f425d"
+    "rust-toolchain.toml": "6b1cf8341d9a08d76c6deb1e9df90a0b208d0ef0d00ee05e0173e9cd4f0f425d",
+    "sdk-tooling.toml#native": "6fcb4d9eb2a9dcbbe5617e662ab4b92f6db624dfa22d2af10255d7bf06473152"
   },
   "linkage": "dynamic-framework",
   "outputs": {
@@ -1348,8 +1348,9 @@
     "cargo.py": "4f468ebfd98d094b464bbb4ac354b65726a1b099f8cfd50c9c37a3fc495c8544",
     "cargo_build.py": "96a1a5b00a20fd64d8691eeba89839144e7e5bd8fd989e9cb0a4a80152f98590",
     "crates/rustc-dep-info/src/main.rs": "0a59fb162cc855001899ad9b83875fac0ed837e73caafd116453352c9b56e2cf",
-    "ffi.py": "ea75aea07673c1b54ac4cf5178876abef3e20063eb5774b5d181e5d9ebc681c9",
-    "native_plan.py": "126791c1993dded2be0f46784a28528d40ed1218c46d1f1aadb2c026f047dcd3",
-    "xcframework.py": "277c2e390f94f45614479e289deccea9c2c3e0af71d5c6ce5421872161671558"
+    "ffi.py": "0b43b65842f7460b13c230df430413eedfc180150f9b998b870e7606600ecddb",
+    "manifest.py": "8b082abe499aaa4c5f2cbb4f0a49f0c1bebae6398f800433ce97b6cd823f45a7",
+    "native_plan.py": "52077659d94b626098ad0795639e40c1596987cae243a2af4116d4ee7fe7fc14",
+    "xcframework.py": "ab709f9f34cc63f2cd342cf8657634212797f69460ae0f93043b9ae74f265d0f"
   }
 }

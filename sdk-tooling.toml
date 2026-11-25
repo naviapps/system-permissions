@@ -1,0 +1,48 @@
+[[native.artifacts]]
+id = "sdk"
+symbol_prefix = "system_permissions_"
+minimum_macos = "26.0"
+
+[checks.swift]
+executable = "SystemPermissionsConsumer"
+inputs = ["Package.swift", "Sources", "Tests", "Artifacts", "ThirdParty"]
+
+[checks.rust_c]
+git_url = "https://github.com/naviapps/system-permissions.git"
+rust_packages = ["system-permissions"]
+
+[checks.rust_c.c]
+framework = "Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework"
+header = "system_permissions.h"
+
+[checks.windows_bindings]
+packages = ["system-permissions-ffi"]
+projects = ["bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj"]
+
+[checks.nuget]
+package_id = "NaviApps.SystemPermissions"
+fixtures = ["fixtures/consumers/dotnet/Program.cs"]
+windows_x64 = true
+
+[distribution.macos]
+commands = [
+  ["xcrun", "swift", "--version"],
+  ["cargo", "fetch", "--locked"],
+  ["make", "check-distribution", "test-installed-consumers"],
+]
+
+[distribution.windows]
+commands = [
+  ["rustup", "install", "--no-self-update"],
+  ["sdk-tooling", "python", "-m", "unittest", "discover", "-s", "distribution/tests"],
+  [
+    "sdk-tooling",
+    "windows",
+    "distribution/verify_windows.py",
+    "--packaged-desktop",
+    "--export-native",
+  ],
+]
+
+[distribution.nuget]
+pack = "distribution/pack_nuget.py"
