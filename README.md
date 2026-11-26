@@ -362,7 +362,7 @@ $env:DOTNET_BIN = 'C:\Program Files\dotnet\dotnet.exe'
 mise trust mise.toml
 mise install python uv "cargo:cbindgen"
 rustup target add x86_64-pc-windows-msvc
-mise run sdk-tooling -- windows distribution/verify_windows.py
+mise run sdk-tooling -- python distribution/verify_windows.py
 ```
 
 The driver runs the Rust, C and managed fixtures and verifies both packages
