@@ -3,7 +3,7 @@ MACOS_LIBRARY := $(CURDIR)/Artifacts/CSystemPermissions.xcframework/macos-arm64_
 
 .DEFAULT_GOAL := check
 SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
-.PHONY: check check-source test-managed check-distribution lint native native-verify check-header generate-header test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools clean
+.PHONY: check check-source test-managed check-distribution lint format native native-verify check-header generate-header test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools clean
 check: check-source test test-consumer
 
 check-source: lint check-header test-rust test-managed
@@ -15,7 +15,9 @@ clean:
 	  bindings/dotnet/src/NaviApps.SystemPermissions.Windows/bin bindings/dotnet/src/NaviApps.SystemPermissions.Windows/obj \
 	  bindings/dotnet/tests/SystemPermissions.Tests/bin bindings/dotnet/tests/SystemPermissions.Tests/obj
 lint:
-	mise run lint
+	$(SDK_TOOLING) quality check --dotnet
+format:
+	$(SDK_TOOLING) quality format --dotnet
 native:
 	$(SDK_TOOLING) xcframework
 native-verify: check-header
@@ -37,10 +39,6 @@ test-bindings:
 	$(SDK_TOOLING) python distribution/verify_bindings.py
 test-distribution-tools:
 	$(SDK_TOOLING) python -m unittest discover -s distribution/tests -v
-.PHONY: format
-format:
-	mise run format
-
 test-managed:
 	dotnet run --configuration Release --project bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj \
 		-p:SystemPermissionsNativeLibrary="$(MACOS_LIBRARY)"

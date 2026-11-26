@@ -304,6 +304,8 @@ mise exec -- make check
 binding suites against the tracked framework. It also runs an external Swift
 consumer. The Cargo fetch primes the cache for the locked offline checks.
 The checks use synthetic effects.
+Use `mise exec -- make lint` to check owned source and `mise exec -- make format`
+to format it.
 
 ### Distribution verification
 
@@ -424,13 +426,6 @@ its published source/history are unchanged. The host retains product-specific
 permission selection, localized copy, onboarding, guidance suppression and behavior
 after denial or cancellation. Stored preferences, Keychain contents and OS grants
 are not migrated or modified by installing this SDK.
-
-## Static checks
-
-`mise install` prepares pinned developer tools. Run `mise run lint` before builds
-or `mise run format` to format owned source. Compiler and native acceptance remain
-in the existing check targets. Formatting excludes vendored code, native artifacts
-and original notices.
 
 ## License
 

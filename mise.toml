@@ -15,12 +15,4 @@ uv = "0.13.10"
 
 [tasks.sdk-tooling]
 description = "Run the pinned SDK Tooling CLI"
-run = "uvx --from git+https://github.com/naviapps/sdk-tooling.git@6a2a3565996c5711017f17dae15cbc9775dd6313 sdk-tooling"
-
-[tasks.lint]
-description = "Check owned source formatting and semantic lint before builds"
-run = "mise run sdk-tooling -- quality check --dotnet"
-
-[tasks.format]
-description = "Format owned source without changing vendor or artifact bytes"
-run = "mise run sdk-tooling -- quality format --dotnet"
+run = "uvx --from git+https://github.com/naviapps/sdk-tooling.git@21410b8dd9b7771b9cc234017837c781ba9d4c4b sdk-tooling"
