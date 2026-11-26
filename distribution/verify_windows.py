@@ -2,7 +2,6 @@
 """Build and check Windows x64 packages on an owned worker."""
 
 import argparse
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -14,6 +13,7 @@ from sdk_tooling.windows_delivery import (
     RID,
     X64Acceptance,
     acceptance_source,
+    export_native,
     publish_package_evidence,
     verify_packages,
 )
@@ -54,26 +54,6 @@ def check_packaged_desktop(fixture, library, host, env):
             check=True,
             timeout=180,
         )
-
-
-def export_native(built, receipt, artifact_root, artifacts):
-    destination = artifact_root / "sdk-windows" / RID
-    if (
-        destination.exists()
-        or destination.is_symlink()
-        or not destination.parent.resolve().is_relative_to(artifact_root.resolve())
-    ):
-        raise ValueError("Windows native export requires a new directory inside the artifact root")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=destination.parent, prefix="native-") as directory:
-        stage = Path(directory) / RID
-        shutil.copytree(built, stage, symlinks=True)
-        expected = receipt["outputs"] | {
-            "native-build.json": artifacts.file_sha256(built / "native-build.json")
-        }
-        if artifacts.hashes(artifacts.files(stage), stage) != expected:
-            raise ValueError("Exported Windows files differ from the accepted native build")
-        stage.rename(destination)
 
 
 def main(argv=None):
@@ -186,7 +166,10 @@ def main(argv=None):
             name = f"{WINDOWS_ADAPTER}.{native.version}.nupkg"
             companion = candidate / "companion"
             artifacts.stage_file(candidate / "packages" / name, companion / name)
-            export_native(built, native_receipt, artifact_root, artifacts)
+            inventory = native_receipt["outputs"] | {
+                "native-build.json": artifacts.file_sha256(built / "native-build.json")
+            }
+            export_native(built, inventory, artifact_root)
             publish_package_evidence(
                 companion,
                 receipt | {"source": before[0][0], "packages": {name: packages[name]}},
