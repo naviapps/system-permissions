@@ -17,6 +17,7 @@ from sdk_tooling.c_headers import prepare_generated
 from sdk_tooling.check_options import select_dotnet_host
 from sdk_tooling.dotnet import subprocess_environment
 from sdk_tooling.native_plan import ffi_product
+from sdk_tooling.xcframework import xcframework
 
 from distribution.pack_nuget import DOTNET, PACKAGE, notice_files
 
@@ -108,6 +109,9 @@ def main():
     inputs = parser.add_mutually_exclusive_group()
     inputs.add_argument("--library", type=Path, help="Explicit already source-built test library")
     inputs.add_argument("--feed", type=Path, help="Verify the combined core and adapter packages")
+    inputs.add_argument(
+        "--verify-native", action="store_true", help="Verify the tracked framework first"
+    )
     args = parser.parse_args()
     if args.feed is not None:
         env = subprocess_environment()
@@ -148,7 +152,9 @@ def main():
     )
     if not library.is_file():
         raise SystemExit("Build the tracked framework with make native first")
-    prepare_generated(ROOT)
+    prepare_generated(ROOT, verify=args.verify_native)
+    if args.verify_native:
+        xcframework(ROOT).verify()
     output = ROOT / "build/bindings"
     output.mkdir(parents=True, exist_ok=True)
     load("c_compiler").compile_c(

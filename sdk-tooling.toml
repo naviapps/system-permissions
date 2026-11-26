@@ -38,6 +38,7 @@ commands = [
   [
     "sdk-tooling",
     "windows",
+    "--driver-prepares-headers",
     "distribution/verify_windows.py",
     "--packaged-desktop",
     "--export-native",

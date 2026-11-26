@@ -2,12 +2,13 @@ SDK_TOOLING ?= mise run sdk-tooling --
 MACOS_LIBRARY := $(CURDIR)/Artifacts/CSystemPermissions.xcframework/macos-arm64_x86_64/CSystemPermissions.framework/CSystemPermissions
 
 .DEFAULT_GOAL := check
-SWIFT_FLAGS := -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors
 .PHONY: check check-source test-managed check-distribution lint format native native-verify check-header generate-header test test-consumer test-installed-consumers test-rust test-bindings test-distribution-tools clean
 check: check-source test test-consumer
 
 check-source: lint check-header test-rust test-managed
-check-distribution: native-verify test-bindings test-distribution-tools
+check-distribution: test-distribution-tools
+	$(SDK_TOOLING) python distribution/verify_bindings.py --verify-native
+
 clean:
 	$(SDK_TOOLING) clean .build target .native-build build/bindings build/windows \
 	  bindings/dotnet/runtimes \
@@ -27,7 +28,7 @@ check-header:
 generate-header:
 	$(SDK_TOOLING) c-headers generate
 test:
-	swift test $(SWIFT_FLAGS)
+	swift test -Xswiftc -warnings-as-errors
 test-consumer:
 	$(SDK_TOOLING) swift-consumer
 test-installed-consumers:

@@ -327,10 +327,10 @@ gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
   -f sdk=system-permissions -f "revision=$(git rev-parse HEAD)"
 ```
 
-`make check-distribution` verifies the tracked framework, runs
-`make test-bindings`, and tests the distribution drivers. The binding target
-tests C ownership and the managed contract, then installs both packages in a
-fresh temporary feed. Source fixtures use the `SystemPermissionsNativeLibrary`
+`make check-distribution` verifies the tracked framework, runs the C and
+managed binding fixtures, and tests the distribution drivers. The binding check
+then installs both packages from a fresh temporary feed. Use `make test-bindings`
+to run the binding check by itself. Source fixtures use the `SystemPermissionsNativeLibrary`
 MSBuild property to stage the library beside the managed output. Use
 `mise exec -- make native` when the framework needs rebuilding.
 
