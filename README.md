@@ -348,11 +348,8 @@ Use an owned Windows x64 or ARM64 worker. Review [`mise.toml`](mise.toml) and
 install the host-native Rust version from
 [`rust-toolchain.toml`](rust-toolchain.toml), Visual Studio C++ tools for the
 x64 target, and the x64 .NET SDK from [`global.json`](global.json).
-On ARM64, use native ARM64 PowerShell and Visual Studio `HostARM64`
-components. Set `DOTNET_BIN` to the absolute path of the x64 executable.
-The default on ARM64 is `C:\Program Files\dotnet\x64\dotnet.exe`.
-See [Visual Studio on ARM64](https://learn.microsoft.com/visualstudio/install/visual-studio-on-arm-devices)
-and [install .NET on Windows](https://learn.microsoft.com/dotnet/core/install/windows).
+On ARM64, follow the
+[Windows on Arm setup](https://github.com/naviapps/sdk-tooling#windows-on-arm).
 
 Run from the SDK root with your x64 .NET path. This example uses the usual
 path on an x64 host.
@@ -382,7 +379,7 @@ Windows x64. Set `-f windows-on-arm=true` for x64 execution on Windows ARM64.
 #### Standalone consumers
 
 `make test-consumer` builds and runs `fixtures/consumers/swift/` against a disposable
-SDK containing only `Package.swift`, `Sources`, `Tests`, `Artifacts` and `ThirdParty`.
+SDK containing only `Package.swift`, `Sources`, `Artifacts` and `ThirdParty`.
 It imports both public products, loads native metadata and descriptor validation,
 round-trips notification masks including all 64 bits, validates Settings navigation
 with a fake effect and projects injected success and API-failure results through
@@ -421,11 +418,9 @@ x64 job runs Rust and managed binding tests. The SDK Tooling distribution jobs
 cover packages and native consumers. Use owned isolated fixtures for requests,
 system UI and Windows ARM64 emulation.
 
-This succeeds the local PermissionsKit integration. The old GitHub repository and
-its published source/history are unchanged. The host retains product-specific
-permission selection, localized copy, onboarding, guidance suppression and behavior
-after denial or cancellation. Stored preferences, Keychain contents and OS grants
-are not migrated or modified by installing this SDK.
+The host retains product-specific permission selection, localized copy, onboarding,
+guidance suppression and behavior after denial or cancellation. Stored preferences,
+Keychain contents and OS grants are not migrated or modified by installing this SDK.
 
 ## License
 

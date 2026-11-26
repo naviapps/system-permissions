@@ -5,7 +5,7 @@ minimum_macos = "26.0"
 
 [checks.swift]
 executable = "SystemPermissionsConsumer"
-inputs = ["Package.swift", "Sources", "Tests", "Artifacts", "ThirdParty"]
+inputs = ["Package.swift", "Sources", "Artifacts", "ThirdParty"]
 
 [checks.rust_c]
 git_url = "https://github.com/naviapps/system-permissions.git"
