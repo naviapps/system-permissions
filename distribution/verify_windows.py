@@ -107,15 +107,9 @@ def main(argv=None):
         )
         windows.require_pe_machine(fixture, "x64")
         acceptance.run(fixture)
-        load("dotnet").run_managed(
-            acceptance.dotnet,
-            ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
-            cwd=ROOT,
-            env=env,
-            properties={"SystemPermissionsNativeLibrary": str(library)},
-            verify_style=True,
+        packages = pack_and_consume(
+            acceptance.dotnet, library, RID, env, candidate, version=native.version
         )
-        packages = pack_and_consume(acceptance.dotnet, library, RID, env, candidate)
         if args.packaged_desktop:
             check_packaged_desktop(fixture, library, host, env)
         expected = {

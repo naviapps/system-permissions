@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from distribution import verify_bindings as bindings
 from distribution import verify_windows as windows
 
 
@@ -47,6 +48,39 @@ class CrossEnvironmentTests(unittest.TestCase):
             self.assertEqual(executable, str(dotnet))
             self.assertEqual(env["DOTNET_ROOT_X64"], str(dotnet.parent))
             self.assertIn("-Ctarget-feature=+crt-static", env["CARGO_ENCODED_RUSTFLAGS"])
+
+
+class PackageBuildTests(unittest.TestCase):
+    def test_core_pack_uses_the_build_from_managed_acceptance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            library = output / "system_permissions.dll"
+            library.write_bytes(b"accepted library")
+            managed = Mock()
+            modules = {
+                "artifacts": bindings.load("artifacts"),
+                "dotnet": managed,
+                "nuget": Mock(),
+            }
+            with (
+                patch.object(bindings, "load", side_effect=modules.__getitem__),
+                patch.object(bindings, "consume_pair") as consume,
+            ):
+                bindings.pack_and_consume("dotnet", library, "win-x64", {}, output, version="0.1.0")
+            tests, core, adapter = managed.mock_calls
+            self.assertEqual(
+                [tests[0], core[0], adapter[0]], ["run_managed", "pack_project", "pack_project"]
+            )
+            self.assertTrue(tests.kwargs["verify_style"])
+            self.assertEqual(tests.kwargs["properties"], core.kwargs["properties"])
+            self.assertEqual(tests.kwargs["env"], core.kwargs["env"])
+            staged = Path(core.kwargs["properties"]["SystemPermissionsNativeLibrary"])
+            self.assertEqual(staged.read_bytes(), library.read_bytes())
+            self.assertTrue(core.kwargs["no_build"])
+            self.assertNotIn("nuget_config", core.kwargs)
+            self.assertEqual(adapter.kwargs["sources"], (output / "packages",))
+            self.assertEqual(adapter.kwargs["properties"]["SystemPermissionsPackAdapter"], "true")
+            consume.assert_called_once()
 
 
 class BuildRouteTests(unittest.TestCase):
@@ -140,7 +174,6 @@ class BuildRouteTests(unittest.TestCase):
                         side_effect=lambda *a, output, **k: write_pe(output, fixture_machine)
                     )
                 ),
-                "dotnet": Mock(),
             }
             acceptance = Mock(host=host, env={}, tools=root / "msvc", dotnet="dotnet.exe")
             acceptance.build.return_value = built
@@ -152,7 +185,8 @@ class BuildRouteTests(unittest.TestCase):
                     native_receipt,
                 )
 
-            def pack(_dotnet, selected_library, _rid, _env, candidate):
+            def pack(_dotnet, selected_library, _rid, _env, candidate, *, version):
+                self.assertEqual(version, "0.1.0")
                 self.assertEqual(selected_library.read_bytes(), library.read_bytes())
                 self.assertEqual(acceptance.run.call_args.args[0].parent, selected_library.parent)
                 output = candidate / "packages"
@@ -191,7 +225,6 @@ class BuildRouteTests(unittest.TestCase):
                     self.assertFalse(companions.exists())
                     if fixture_machine != 0x8664:
                         acceptance.run.assert_not_called()
-                        scope["dotnet"].run_managed.assert_not_called()
                         installed.assert_not_called()
                     return
                 windows.main(arguments)

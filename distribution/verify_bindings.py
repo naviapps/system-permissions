@@ -44,34 +44,48 @@ def consume_pair(dotnet, packages, version, env, output, *, runtime=None, exclud
     )
 
 
-def pack_and_consume(dotnet, library, rid, env, output):
+def pack_and_consume(dotnet, library, rid, env, output, *, version):
     runtime = output / "native" / rid
     native_name = "libsystem_permissions.dylib" if rid.startswith("osx-") else library.name
     staged = load("artifacts").stage_native(library, runtime / native_name)
     packages = output / "packages"
-    version = ffi_product(ROOT).version
-    pack_project = load("dotnet").pack_project
-    for name, properties, sources in (
-        (
-            PACKAGE,
-            {
-                "SystemPermissionsRuntimeIdentifier": rid,
-                "SystemPermissionsNativeLibrary": str(staged),
-            },
-            (),
-        ),
-        (WINDOWS_ADAPTER, {"SystemPermissionsPackAdapter": "true"}, (packages,)),
-    ):
-        pack_project(
-            dotnet,
-            DOTNET / "src" / name / (name + ".csproj"),
-            output=packages,
-            cwd=ROOT,
-            env=dict(env, NUGET_PACKAGES=str(output / "core-restore")),
-            properties={"Version": version, **properties},
-            nuget_config=DOTNET / "NuGet.Config",
-            sources=sources,
-        )
+    managed = load("dotnet")
+    config = DOTNET / "NuGet.Config"
+    core_properties = {
+        "Version": version,
+        "SystemPermissionsRuntimeIdentifier": rid,
+        "SystemPermissionsNativeLibrary": str(staged),
+    }
+    core_env = dict(env, NUGET_PACKAGES=str(output / "core-restore"))
+    managed.run_managed(
+        dotnet,
+        DOTNET / "tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
+        cwd=ROOT,
+        env=core_env,
+        properties=core_properties,
+        nuget_config=config,
+        verify_style=True,
+    )
+    # The source fixture builds the core with the same properties and native bytes.
+    managed.pack_project(
+        dotnet,
+        DOTNET / "src" / PACKAGE / (PACKAGE + ".csproj"),
+        output=packages,
+        cwd=ROOT,
+        env=core_env,
+        properties=core_properties,
+        no_build=True,
+    )
+    managed.pack_project(
+        dotnet,
+        DOTNET / "src" / WINDOWS_ADAPTER / (WINDOWS_ADAPTER + ".csproj"),
+        output=packages,
+        cwd=ROOT,
+        env=env,
+        properties={"Version": version, "SystemPermissionsPackAdapter": "true"},
+        nuget_config=config,
+        sources=(packages,),
+    )
     core, adapter = (packages / f"{name}.{version}.nupkg" for name in (PACKAGE, WINDOWS_ADAPTER))
     audit = load("nuget").audit_package
     hashes = {
@@ -145,8 +159,9 @@ def main():
     if not library.is_file():
         raise SystemExit("Build the tracked framework with make native first")
     prepare_generated(ROOT, verify=args.verify_native)
+    native = xcframework(ROOT) if args.verify_native else ffi_product(ROOT)
     if args.verify_native:
-        xcframework(ROOT).verify()
+        native.verify()
     output = ROOT / "build/bindings"
     output.mkdir(parents=True, exist_ok=True)
     load("c_compiler").compile_c(
@@ -161,16 +176,10 @@ def main():
         env=env,
     )
     subprocess.run([output / "abi"], cwd=ROOT, env=env, check=True)
-    load("dotnet").run_managed(
-        dotnet,
-        ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
-        cwd=ROOT,
-        env=env,
-        properties={"SystemPermissionsNativeLibrary": str(library)},
-        verify_style=True,
-    )
     with tempfile.TemporaryDirectory(dir=output, prefix="consumer-") as temporary:
-        packages = pack_and_consume(dotnet, library, rid, env, Path(temporary))
+        packages = pack_and_consume(
+            dotnet, library, rid, env, Path(temporary), version=native.version
+        )
     (output / "acceptance.json").write_text(
         json.dumps(
             {
