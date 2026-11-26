@@ -1,3 +1,4 @@
+/.swiftlint/RemoteConfigCache/
 /target/
 /.build/
 /.native-build/
