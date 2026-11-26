@@ -1,13 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>NaviApps.SystemPermissions.Windows</PackageId>
-    <Version>0.1.0</Version>
     <Description>Windows AppCapability effects for NaviApps.SystemPermissions.</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PublishRepositoryUrl>false</PublishRepositoryUrl>
-    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
-    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <PathMap>$(MSBuildProjectDirectory)=/system-permissions/dotnet/windows</PathMap>
   </PropertyGroup>
   <ItemGroup>
@@ -15,7 +9,5 @@
                       Condition="'$(SystemPermissionsPackAdapter)' != 'true'" />
     <PackageReference Include="NaviApps.SystemPermissions" Version="[$(Version)]"
                       Condition="'$(SystemPermissionsPackAdapter)' == 'true'" />
-    <None Include="../../../../LICENSE" Pack="true" PackagePath="/" />
-    <None Include="../../README.md" Pack="true" PackagePath="/README.md" />
   </ItemGroup>
 </Project>

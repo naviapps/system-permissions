@@ -1,20 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>NaviApps.SystemPermissions</PackageId>
-    <Version>0.1.0</Version>
     <Description>Rust-backed permission values, validation, checking and deterministic state.</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PublishRepositoryUrl>false</PublishRepositoryUrl>
-    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
-    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <PathMap>$(MSBuildProjectDirectory)=/system-permissions/dotnet</PathMap>
     <GenerateDocumentationFile Condition="'$(SdkNativeRuntimeAssets)' != ''">true</GenerateDocumentationFile>
     <NoWarn Condition="'$(SdkNativeRuntimeAssets)' != ''">$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="../../../../LICENSE" Pack="true" PackagePath="/" />
-    <None Include="../../README.md" Pack="true" PackagePath="/README.md" />
     <None Include="$(SystemPermissionsNativeLibrary)" Condition="'$(SystemPermissionsNativeLibrary)' != ''"
           CopyToOutputDirectory="Always" Pack="true"
           PackagePath="runtimes/$(SystemPermissionsRuntimeIdentifier)/native/%(Filename)%(Extension)">
