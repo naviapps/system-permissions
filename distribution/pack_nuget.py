@@ -14,8 +14,11 @@ DOTNET = ROOT / "bindings/dotnet"
 PACKAGE = "NaviApps.SystemPermissions"
 
 
-def notice_files():
-    return retained_notice_files(ROOT / "ThirdParty", "licenses")
+def package_files(*, include_notices=True):
+    files = {"LICENSE": ROOT / "LICENSE", "README.md": DOTNET / "README.md"}
+    if include_notices:
+        files.update(retained_notice_files(ROOT / "ThirdParty", "licenses"))
+    return files
 
 
 def main():
@@ -31,11 +34,7 @@ def main():
         native,
         project=DOTNET / "src" / PACKAGE / (PACKAGE + ".csproj"),
         nuget_config=DOTNET / "NuGet.Config",
-        package_files={
-            "LICENSE": ROOT / "LICENSE",
-            "README.md": DOTNET / "README.md",
-            **notice_files(),
-        },
+        package_files=package_files(),
         input_files=[Path(__file__), ROOT / "mise.toml"],
         runtimes=args.runtime,
     )

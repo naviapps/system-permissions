@@ -2,7 +2,6 @@
 """Validate C ownership, .NET contracts and clean, private NuGet consumption."""
 
 import argparse
-import hashlib
 import json
 import os
 import platform
@@ -13,20 +12,17 @@ import tempfile
 from pathlib import Path
 
 from sdk_tooling.adapters import load
+from sdk_tooling.artifacts import file_sha256
 from sdk_tooling.c_headers import prepare_generated
 from sdk_tooling.check_options import select_dotnet_host
 from sdk_tooling.dotnet import subprocess_environment
 from sdk_tooling.native_plan import ffi_product
 from sdk_tooling.xcframework import xcframework
 
-from distribution.pack_nuget import DOTNET, PACKAGE, notice_files
+from distribution.pack_nuget import DOTNET, PACKAGE, package_files
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS_ADAPTER = PACKAGE + ".Windows"
-
-
-def run(*args, env):
-    subprocess.run([str(a) for a in args], cwd=ROOT, env=env, check=True)
 
 
 def consume_pair(dotnet, packages, version, env, output, *, runtime=None, exclude_paths=()):
@@ -54,6 +50,7 @@ def pack_and_consume(dotnet, library, rid, env, output):
     staged = load("artifacts").stage_native(library, runtime / native_name)
     packages = output / "packages"
     version = ffi_product(ROOT).version
+    pack_project = load("dotnet").pack_project
     for name, properties, sources in (
         (
             PACKAGE,
@@ -65,7 +62,7 @@ def pack_and_consume(dotnet, library, rid, env, output):
         ),
         (WINDOWS_ADAPTER, {"SystemPermissionsPackAdapter": "true"}, (packages,)),
     ):
-        load("dotnet").pack_project(
+        pack_project(
             dotnet,
             DOTNET / "src" / name / (name + ".csproj"),
             output=packages,
@@ -75,26 +72,25 @@ def pack_and_consume(dotnet, library, rid, env, output):
             nuget_config=DOTNET / "NuGet.Config",
             sources=sources,
         )
-    built = [packages / f"{name}.{version}.nupkg" for name in (PACKAGE, WINDOWS_ADAPTER)]
-    notices = notice_files()
+    core, adapter = (packages / f"{name}.{version}.nupkg" for name in (PACKAGE, WINDOWS_ADAPTER))
+    audit = load("nuget").audit_package
     hashes = {
-        package.name: load("nuget").audit_package(
-            package,
-            expected_files={
-                "README.md": ROOT / "bindings/dotnet/README.md",
-                "LICENSE": ROOT / "LICENSE",
-                **(notices if package == built[0] else {}),
-            },
-            runtime_files={"runtimes/" + rid + "/native/" + native_name: library}
-            if package == built[0]
-            else {},
-            expected_dependencies=[] if package == built[0] else [(PACKAGE, f"[{version}]")],
-        )
-        for package in built
+        core.name: audit(
+            core,
+            expected_files=package_files(),
+            runtime_files={f"runtimes/{rid}/native/{native_name}": library},
+            expected_dependencies=[],
+        ),
+        adapter.name: audit(
+            adapter,
+            expected_files=package_files(include_notices=False),
+            runtime_files={},
+            expected_dependencies=[(PACKAGE, f"[{version}]")],
+        ),
     }
     consume_pair(
         dotnet,
-        built,
+        [core, adapter],
         version,
         env,
         output,
@@ -164,7 +160,7 @@ def main():
         cwd=ROOT,
         env=env,
     )
-    run(output / "abi", env=env)
+    subprocess.run([output / "abi"], cwd=ROOT, env=env, check=True)
     load("dotnet").run_managed(
         dotnet,
         ROOT / "bindings/dotnet/tests/SystemPermissions.Tests/SystemPermissions.Tests.csproj",
@@ -179,7 +175,7 @@ def main():
         json.dumps(
             {
                 "target": target,
-                "nativeSha256": hashlib.sha256(library.read_bytes()).hexdigest(),
+                "nativeSha256": file_sha256(library),
                 "packages": packages,
                 "coverage": [
                     "C ownership and buffers",
