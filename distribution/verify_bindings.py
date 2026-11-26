@@ -131,12 +131,8 @@ def main():
     dotnet = os.environ.get("DOTNET_BIN") or shutil.which("dotnet")
     if not dotnet:
         raise SystemExit("Set DOTNET_BIN to the task's .NET 10 executable")
-    env = dict(
-        os.environ,
-        DOTNET_CLI_TELEMETRY_OPTOUT="1",
-        DOTNET_NOLOGO="1",
-        DOTNET_CLI_USE_MSBUILD_SERVER="0",
-        MSBUILDDISABLENODEREUSE="1",
+    env = subprocess_environment()
+    env.update(
         DOTNET_CLI_UI_LANGUAGE="en",
         CARGO_TARGET_DIR=str(ROOT / "target"),
     )

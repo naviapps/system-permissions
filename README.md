@@ -21,6 +21,10 @@ Start with [Swift](#swift), [Rust and C](#rust-c-and-net), or the
 
 ## Responsibility
 
+Hosts choose permissions, localized explanations, prompt timing, which onboarding
+guidance to suppress, and how to recover after denial or cancellation.
+Installing the SDK preserves existing preferences, Keychain contents and OS grants.
+
 Rust owns descriptors, platform metadata, identifier/options/result validation,
 access-state interpretation, direct status and request admission, stored work admission
 and state generations.
@@ -331,8 +335,7 @@ gh workflow run check-sdk-distribution.yml -R naviapps/sdk-tooling \
 managed binding fixtures, and tests the distribution drivers. The binding check
 then installs both packages from a fresh temporary feed. Use `make test-bindings`
 to run the binding check by itself. Source fixtures use the `SystemPermissionsNativeLibrary`
-MSBuild property to stage the library beside the managed output. Use
-`mise exec -- make native` when the framework needs rebuilding.
+MSBuild property to stage the library beside the managed output.
 
 To check the downloaded core and adapter together, use the SDK checkout at the
 distribution revision and point the fixture to the local feed. The consumer
@@ -417,10 +420,6 @@ Swift tests and standalone Swift consumer on macOS 26 and 27. The public Windows
 x64 job runs Rust and managed binding tests. The SDK Tooling distribution jobs
 cover packages and native consumers. Use owned isolated fixtures for requests,
 system UI and Windows ARM64 emulation.
-
-The host retains product-specific permission selection, localized copy, onboarding,
-guidance suppression and behavior after denial or cancellation. Stored preferences,
-Keychain contents and OS grants are not migrated or modified by installing this SDK.
 
 ## License
 
