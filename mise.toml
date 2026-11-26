@@ -15,4 +15,4 @@ uv = "0.13.10"
 
 [tasks.sdk-tooling]
 description = "Run the pinned SDK Tooling CLI"
-run = "uvx --from git+https://github.com/naviapps/sdk-tooling.git@f135215378569ca7b56a2614b2d065312a581716 sdk-tooling"
+run = "uvx --from git+https://github.com/naviapps/sdk-tooling.git@50b619514e121ba8cb6be68023cb8b28277815a7 sdk-tooling"
