@@ -8,7 +8,6 @@ import platform
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 from sdk_tooling.adapters import load
@@ -17,6 +16,7 @@ from sdk_tooling.c_headers import prepare_generated
 from sdk_tooling.check_options import select_dotnet_host
 from sdk_tooling.dotnet import subprocess_environment
 from sdk_tooling.native_plan import ffi_product
+from sdk_tooling.workspaces import temporary_workspace
 from sdk_tooling.xcframework import xcframework
 
 from distribution.pack_nuget import DOTNET, PACKAGE, package_files
@@ -129,9 +129,9 @@ def main():
         dotnet, _, _ = select_dotnet_host(env, target)
         version = ffi_product(ROOT).version
         packages = [args.feed / f"{name}.{version}.nupkg" for name in (PACKAGE, WINDOWS_ADAPTER)]
-        with tempfile.TemporaryDirectory(prefix="system-permissions-feed-") as temporary:
+        with temporary_workspace(None, prefix="system-permissions-feed-") as work:
             consume_pair(
-                dotnet, packages, version, env, temporary, runtime="win-x64" if target else None
+                dotnet, packages, version, env, work, runtime="win-x64" if target else None
             )
         return
     if sys.platform != "darwin":
@@ -164,22 +164,21 @@ def main():
         native.verify()
     output = ROOT / "build/bindings"
     output.mkdir(parents=True, exist_ok=True)
-    load("c_compiler").compile_c(
-        ROOT / "crates/ffi/tests/c/abi.c",
-        output=output / "abi",
-        compiler=["xcrun", "clang"],
-        include_dirs=[ROOT / "crates/ffi/include"],
-        libraries=[library],
-        standard="c17",
-        flags=["-Wl,-rpath," + str(library.parent.parent)],
-        cwd=ROOT,
-        env=env,
-    )
-    subprocess.run([output / "abi"], cwd=ROOT, env=env, check=True)
-    with tempfile.TemporaryDirectory(dir=output, prefix="consumer-") as temporary:
-        packages = pack_and_consume(
-            dotnet, library, rid, env, Path(temporary), version=native.version
+    with temporary_workspace(output, prefix="bindings-") as work:
+        abi = work / "abi"
+        load("c_compiler").compile_c(
+            ROOT / "crates/ffi/tests/c/abi.c",
+            output=abi,
+            compiler=["xcrun", "clang"],
+            include_dirs=[ROOT / "crates/ffi/include"],
+            libraries=[library],
+            standard="c17",
+            flags=["-Wl,-rpath," + str(library.parent.parent)],
+            cwd=ROOT,
+            env=env,
         )
+        subprocess.run([abi], cwd=ROOT, env=env, check=True)
+        packages = pack_and_consume(dotnet, library, rid, env, work, version=native.version)
     (output / "acceptance.json").write_text(
         json.dumps(
             {

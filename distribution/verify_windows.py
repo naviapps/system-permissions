@@ -3,7 +3,6 @@
 
 import argparse
 import subprocess
-import tempfile
 from pathlib import Path
 
 from sdk_tooling.adapters import load, support_inputs
@@ -17,6 +16,7 @@ from sdk_tooling.windows_delivery import (
     publish_package_evidence,
     verify_packages,
 )
+from sdk_tooling.workspaces import temporary_workspace
 
 from distribution.verify_bindings import WINDOWS_ADAPTER, pack_and_consume
 
@@ -30,7 +30,7 @@ def check_packaged_desktop(fixture, library, host, env):
         raise ValueError("The MSIX fixture requires a disposable GitHub-hosted Windows runner")
     sdk = Path(env["WINDOWSSDKDIR"]) / "bin" / env["WINDOWSSDKVERSION"].rstrip("\\/") / host
     powershell = Path(env["SYSTEMROOT"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
-    with tempfile.TemporaryDirectory(dir=env["RUNNER_TEMP"], prefix="permissions-msix-") as work:
+    with temporary_workspace(env["RUNNER_TEMP"], prefix="permissions-msix-") as work:
         subprocess.run(
             [
                 str(powershell),
@@ -89,9 +89,8 @@ def main(argv=None):
     native_root = ROOT / ".native-build"
     with (
         artifacts.build_lock(native_root),
-        tempfile.TemporaryDirectory(dir=native_root, prefix="permissions-acceptance-") as directory,
+        temporary_workspace(native_root, prefix="permissions-acceptance-") as candidate,
     ):
-        candidate = Path(directory)
         library, import_library, native_receipt = acceptance.stage(native, built, candidate)
         fixture = candidate / "abi.exe"
         load("c_compiler").compile_c(
